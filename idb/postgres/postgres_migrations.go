@@ -4,8 +4,8 @@
 package postgres
 
 import (
-	"context"
-	"database/sql"
+	//"context"
+	//"database/sql"
 	"fmt"
 
 	"github.com/algorand/indexer/idb"
@@ -17,30 +17,32 @@ func init() {
 	// To deprecate old migrations change the functions to return a `unsupportedMigrationErrorMsg` error.
 	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
 	migrations = []migrationStruct{
-		// function, blocking, description
-		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
-		{m2apps, true, "Update DB Schema for Algorand application support."},
-		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+		/*
+			// function, blocking, description
+			{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+			{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
+			{m2apps, true, "Update DB Schema for Algorand application support."},
+			{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 
-		// 2.2.2 hotfix
-		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+			// 2.2.2 hotfix
+			{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
 
-		// Migrations for 2.3.1 release
-		{m5MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
-		{m6RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m7RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+			// Migrations for 2.3.1 release
+			{m5MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+			{m6RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+			{m7RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 
-		// Migrations for 2.3.2 release
-		{m8StaleClosedAccounts, false, "clear some stale data from closed accounts"},
-		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
-		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
-		{m11AssetHoldingFrozen, true, "Fix asset holding freeze states."},
+			// Migrations for 2.3.2 release
+			{m8StaleClosedAccounts, false, "clear some stale data from closed accounts"},
+			{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
+			{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
+			{m11AssetHoldingFrozen, true, "Fix asset holding freeze states."},
 
-		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
-		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
-		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
-		{MaxRoundAccountedMigration, true, "change import state format"},
+			{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
+			{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
+			{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
+			{MaxRoundAccountedMigration, true, "change import state format"},
+		*/
 	}
 }
 
@@ -94,6 +96,7 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
+/*
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
@@ -101,6 +104,7 @@ func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) erro
 	migrationStateJSON := encoding.EncodeJSON(state)
 	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
 }
+*/
 
 func (db *IndexerDb) runAvailableMigrations() (err error) {
 	state, err := db.getMigrationState()
@@ -171,6 +175,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 	return state, nil
 }
 
+/*
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
@@ -333,3 +338,4 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 	*migrationState = nextMigrationState
 	return nil
 }
+*/
