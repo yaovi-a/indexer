@@ -48,9 +48,9 @@ func convertAssetParams(params basics.AssetParams) assetParams {
 		ReserveOverride:  crypto.Digest(params.Reserve),
 		FreezeOverride:   crypto.Digest(params.Freeze),
 		ClawbackOverride: crypto.Digest(params.Clawback),
-		AssetNameBytes:   []byte(params.AssetName),
-		UnitNameBytes:    []byte(params.UnitName),
-		URLBytes:         []byte(params.URL),
+		AssetNameBytes: []byte(params.AssetName),
+		UnitNameBytes:  []byte(params.UnitName),
+		URLBytes:       []byte(params.URL),
 	}
 
 	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
