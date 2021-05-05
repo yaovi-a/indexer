@@ -4,11 +4,11 @@
 package postgres
 
 import (
-	"context"
-	"database/sql"
+	//"context"
+	//"database/sql"
 	"fmt"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	//sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -19,6 +19,7 @@ func init() {
 	// To deprecate old migrations change the functions to return a `unsupportedMigrationErrorMsg` error.
 	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
 	migrations = []migrationStruct{
+		/*
 		// function, blocking, description
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
@@ -43,6 +44,7 @@ func init() {
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 		{MaxRoundAccountedMigration, true, "change import state format"},
+		*/
 	}
 }
 
@@ -100,6 +102,7 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
+/*
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
@@ -111,6 +114,7 @@ func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incr
 
 	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
 }
+*/
 
 func (db *IndexerDb) runAvailableMigrations() (err error) {
 	state, err := db.getMigrationState()
@@ -181,6 +185,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 	return state, nil
 }
 
+/*
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
@@ -592,3 +597,4 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 	*migrationState = nextMigrationState
 	return nil
 }
+*/
