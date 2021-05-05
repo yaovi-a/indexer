@@ -3,7 +3,6 @@ package idb
 // AddressRole is a dedicated type for the address role.
 type AddressRole uint64
 
-// All possible address roles.
 const (
 	AddressRoleSender           AddressRole = 0x01
 	AddressRoleReceiver         AddressRole = 0x02
