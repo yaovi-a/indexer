@@ -4,32 +4,29 @@
 package postgres
 
 import (
-	"bytes"
-	"context"
+	//"bytes"
+	//"context"
 	"database/sql"
-	"encoding/base64"
+	//"encoding/base64"
 	"fmt"
-	"math"
-	"os"
+	//"math"
+	//"os"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
-	"github.com/algorand/indexer/accounting"
+	//"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
 // rewardsMigrationIndex is the index of m7RewardsAndDatesPart2.
 const rewardsMigrationIndex = 7
 
+const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
+
 func init() {
 	migrations = []migrationStruct{
+		/*
 		// function, blocking, description
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
@@ -53,9 +50,11 @@ func init() {
 		// Migrations for a next release
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
+		*/
 	}
 
 	// Verify ensure the constant is pointing to the right index
+	/*
 	var m7Ptr postgresMigrationFunc = m7RewardsAndDatesPart2
 	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
 	a1 := fmt.Sprintf("%v", m7Ptr)
@@ -63,6 +62,7 @@ func init() {
 		fmt.Println("Bad constant in postgres_migrations.go")
 		os.Exit(1)
 	}
+	*/
 }
 
 // MigrationState is metadata used by the postgres migrations.
@@ -120,7 +120,7 @@ func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigr
 	if incrementNextMigration {
 		state.NextMigration++
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
 	return err
@@ -131,7 +131,7 @@ func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMig
 	if incrementNextMigration {
 		state.NextMigration++
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
 	return err
@@ -140,7 +140,7 @@ func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMig
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
 	if len(migrationStateJSON) > 0 {
-		err = json.Decode([]byte(migrationStateJSON), &state)
+		err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
 		if err != nil {
 			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
 		}
@@ -185,8 +185,8 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	state := MigrationState{
 		NextMigration: len(migrations),
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
-	return db.setMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := encoding.EncodeJSON(state)
+	return db.setMetastate(migrationMetastateKey, string(migrationStateJSON))
 }
 
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
@@ -198,7 +198,7 @@ func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
 		return nil, fmt.Errorf("%s, get m state err", txidMigrationErrMsg)
 	}
 	var txstate MigrationState
-	err = json.Decode([]byte(migrationStateJSON), &txstate)
+	err = encoding.DecodeJSON([]byte(migrationStateJSON), &txstate)
 	if err != nil {
 		return nil, fmt.Errorf("%s, migration json err", txidMigrationErrMsg)
 	}
@@ -247,6 +247,23 @@ func (db *IndexerDb) processAccount(account *generated.Account) {
 		account.Rewards = 0
 	}
 }
+
+/*
+func m0YieldTxns(ctx context.Context, db *IndexerDb, firstRound uint64) <-chan idb.TxnRow {
+	results := make(chan idb.TxnRow, 1)
+	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound)-1)
+	if err != nil {
+		results <- idb.TxnRow{Error: err}
+		close(results)
+		return results
+	}
+	go func() {
+		db.yieldTxnsThread(ctx, rows, results)
+		close(results)
+	}()
+	return results
+}
+
 
 func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
 	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
@@ -1195,8 +1212,6 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	return nil
 }
 
-const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
-
 type migrationContext struct {
 	db      *IndexerDb
 	state   *MigrationState
@@ -1437,7 +1452,7 @@ func readHeaders(db *IndexerDb, minRound, maxRound uint64) (map[uint64]types.Blo
 			return nil, err
 		}
 		var tblock types.Block
-		json.Decode(headerjson, &tblock)
+		encoding.DecodeJSON(headerjson, &tblock)
 		headers[uint64(round)] = tblock
 	}
 	if err := rows.Err(); err != nil {
@@ -1589,7 +1604,7 @@ func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	if err == sql.ErrNoRows {
 		// Indexer may be new after m7, marking it as done without running it, so we don't need to do anything here.
 		state.NextMigration++
-		migrationStateJSON := json.Encode(state)
+		migrationStateJSON := encoding.EncodeJSON(state)
 		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 		if err != nil {
 			db.log.WithError(err).Errorf("%s, meta err", m9ErrPrefix)
@@ -1665,7 +1680,7 @@ func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	// all done, mark migration state
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJSON := string(json.Encode(state))
+	migrationStateJSON := string(encoding.EncodeJSON(state))
 	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", m9ErrPrefix)
@@ -1791,7 +1806,7 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON := json.Encode(txstate)
+	migrationStateJSON := encoding.EncodeJSON(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", m9ErrPrefix)
@@ -2205,3 +2220,4 @@ func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
 
 	return nil
 }
+*/

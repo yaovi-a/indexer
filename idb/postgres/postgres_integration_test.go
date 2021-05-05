@@ -1,33 +1,19 @@
 package postgres
 
 import (
-	"context"
-	"database/sql"
-	"sync"
+	//"context"
+	//"database/sql"
+	//"fmt"
+	//"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	//"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
-	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util/test"
+	//"github.com/algorand/indexer/util/test"
 )
-
-// getAccounting initializes the ac counting state for testing.
-func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
-	accountingState := accounting.New(cache)
-	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
-	return accountingState
-}
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
@@ -37,14 +23,14 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	///////////
 	// Given // A database that has not yet imported the genesis accounts.
 	///////////
-	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	//////////
 	// When // We request the max round.
 	//////////
 	roundA, errA := db.GetMaxRoundAccounted()
-	roundL, errL := db.GetMaxRoundLoaded()
+	roundL, errL := db.getMaxRoundLoaded()
 
 	//////////
 	// Then // The error message should be set.
@@ -85,7 +71,7 @@ func TestMaxRound(t *testing.T) {
 	///////////
 	// Given // The database has the metastate set normally.
 	///////////
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
 	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
@@ -95,7 +81,7 @@ func TestMaxRound(t *testing.T) {
 	//////////
 	roundA, err := pdb.GetMaxRoundAccounted()
 	assert.NoError(t, err)
-	roundL, err := pdb.GetMaxRoundLoaded()
+	roundL, err := pdb.getMaxRoundLoaded()
 	assert.NoError(t, err)
 
 	//////////
@@ -105,6 +91,7 @@ func TestMaxRound(t *testing.T) {
 	assert.Equal(t, uint64(543212345), roundL)
 }
 
+/*
 func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
 	var row *sql.Row
 	var f bool
@@ -485,7 +472,7 @@ func TestRekeyBasic(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountB, ad.SpendingKey)
 }
@@ -534,7 +521,7 @@ func TestRekeyToItself(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, sdk_types.ZeroAddress, ad.SpendingKey)
 }
@@ -581,7 +568,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountC, ad.SpendingKey)
 }
@@ -920,3 +907,4 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 }
+*/

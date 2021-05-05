@@ -5,16 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util/test"
 )
 
 // setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
@@ -52,29 +47,14 @@ func setupIdb(t *testing.T) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	return idb, shutdownFunc
 }
 
+/*
 func importTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*sdk_types.SignedTxnWithAD) {
 	block := test.MakeBlockForTxns(round, txns...)
 
 	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
 	assert.NoError(t, err)
 }
-
-func accountTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*idb.TxnRow) {
-	cache, err := db.GetDefaultFrozen()
-	assert.NoError(t, err)
-
-	state := accounting.New(cache)
-	err = state.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
-	assert.NoError(t, err)
-
-	for _, txn := range txns {
-		err := state.AddTransaction(txn)
-		assert.NoError(t, err)
-	}
-
-	err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.Block{})
-	assert.NoError(t, err)
-}
+*/
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
 func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
