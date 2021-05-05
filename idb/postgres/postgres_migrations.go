@@ -4,31 +4,28 @@
 package postgres
 
 import (
-	"bytes"
-	"context"
+	//"bytes"
+	//"context"
 	"database/sql"
 	"fmt"
-	"math"
-	"os"
+	//"math"
+	//"os"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
-	"github.com/algorand/indexer/accounting"
+	//"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/types"
 )
 
 // rewardsMigrationIndex is the index of m7RewardsAndDatesPart2.
 const rewardsMigrationIndex = 7
 
+const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
+
 func init() {
 	migrations = []migrationStruct{
+		/*
 		// function, blocking, description
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
@@ -53,9 +50,11 @@ func init() {
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
+		*/
 	}
 
 	// Verify ensure the constant is pointing to the right index
+	/*
 	var m7Ptr postgresMigrationFunc = m7RewardsAndDatesPart2
 	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
 	a1 := fmt.Sprintf("%v", m7Ptr)
@@ -63,6 +62,7 @@ func init() {
 		fmt.Println("Bad constant in postgres_migrations.go")
 		os.Exit(1)
 	}
+	*/
 }
 
 // MigrationState is metadata used by the postgres migrations.
@@ -247,6 +247,23 @@ func (db *IndexerDb) processAccount(account *generated.Account) {
 		account.Rewards = 0
 	}
 }
+
+/*
+func m0YieldTxns(ctx context.Context, db *IndexerDb, firstRound uint64) <-chan idb.TxnRow {
+	results := make(chan idb.TxnRow, 1)
+	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound)-1)
+	if err != nil {
+		results <- idb.TxnRow{Error: err}
+		close(results)
+		return results
+	}
+	go func() {
+		db.yieldTxnsThread(ctx, rows, results)
+		close(results)
+	}()
+	return results
+}
+
 
 func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
 	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
@@ -1193,8 +1210,6 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	*state = nextState
 	return nil
 }
-
-const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
 
 type migrationContext struct {
 	db      *IndexerDb
@@ -2222,3 +2237,4 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 	}
 	return sqlMigration(db, state, queries)
 }
+*/

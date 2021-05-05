@@ -10,7 +10,6 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
 )
 
 var (
@@ -59,6 +58,8 @@ var resetCmd = &cobra.Command{
 				err = db.Reset()
 				maybeFail(err, "database reset failed")
 				if andRebuild {
+					// TODO
+					/*
 					nextRound, err := db.GetNextRoundToLoad()
 					maybeFail(err, "failed to get next round, %v", err)
 
@@ -79,6 +80,7 @@ var resetCmd = &cobra.Command{
 					} else {
 						fmt.Println("Done. No blocks to rebuild accounting from.")
 					}
+					*/
 				} else {
 					fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
 				}

@@ -1,5 +1,6 @@
 package postgres
 
+/*
 import (
 	"context"
 	"testing"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -302,3 +302,4 @@ func TestMakeDeletedNotNullMigration(t *testing.T) {
 		assert.Equal(t, false, *deleted)
 	}
 }
+*/
