@@ -16,7 +16,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
-const AddBlockHeaderQuery =
+const addBlockHeaderQuery =
 	"INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES " +
 	"($1, $2, $3, $4) ON CONFLICT DO NOTHING"
 const addTxnQuery =
@@ -86,6 +86,7 @@ const updateAccountKeyTypeQuery =
 type Writer struct{
 	tx *sql.Tx
 
+	addBlockHeaderStmt *sql.Stmt
 	addTxnStmt *sql.Stmt
 	addTxnParticipantStmt *sql.Stmt
 	updateAssetStmt *sql.Stmt
@@ -108,65 +109,95 @@ func MakeWriter(tx *sql.Tx) (Writer, error) {
 
 	var err error
 
+	w.addBlockHeaderStmt, err = tx.Prepare(addBlockHeaderQuery)
+	if err != nil {
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare add block header stmt err: %w", err)
+	}
 	w.addTxnStmt, err = tx.Prepare(addTxnQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare add txn stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare add txn stmt err: %w", err)
 	}
 	w.addTxnParticipantStmt, err = tx.Prepare(addTxnParticipantQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare add txn participant stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare add txn participant stmt err: %w", err)
 	}
 	w.updateAssetStmt, err = tx.Prepare(updateAssetQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update asset stmt err: %w", err)
+		return Writer{}, fmt.Errorf("MakeWriter(): prepare update asset stmt err: %w", err)
 	}
 	w.updateAccountAssetStmt, err = tx.Prepare(updateAccountAssetQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update account asset stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare update account asset stmt err: %w", err)
 	}
 	w.updateAppStmt, err = tx.Prepare(updateAppQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update app stmt err: %w", err)
+		return Writer{}, fmt.Errorf("MakeWriter(): prepare update app stmt err: %w", err)
 	}
 	w.updateAccountAppStmt, err = tx.Prepare(updateAccountAppQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update account app stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare update account app stmt err: %w", err)
 	}
 	w.deleteAccountStmt, err = tx.Prepare(deleteAccountQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare delete account stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare delete account stmt err: %w", err)
 	}
 	w.updateAccountStmt, err = tx.Prepare(updateAccountQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update account stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare update account stmt err: %w", err)
 	}
 	w.deleteAssetStmt, err = tx.Prepare(deleteAssetQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare delete asset stmt err: %w", err)
+		return Writer{}, fmt.Errorf("MakeWriter(): prepare delete asset stmt err: %w", err)
 	}
 	w.deleteAccountAssetStmt, err = tx.Prepare(deleteAccountAssetQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare delete account asset stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare delete account asset stmt err: %w", err)
 	}
 	w.deleteAppStmt, err = tx.Prepare(deleteAppQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare delete app stmt err: %w", err)
+		return Writer{}, fmt.Errorf("MakeWriter(): prepare delete app stmt err: %w", err)
 	}
 	w.deleteAccountAppStmt, err = tx.Prepare(deleteAccountAppQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare delete account app stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare delete account app stmt err: %w", err)
 	}
 	w.updateAccountKeyTypeStmt, err = tx.Prepare(updateAccountKeyTypeQuery)
 	if err != nil {
-		return w, fmt.Errorf("MakeWriter(): prepare update account sig type stmt err: %w", err)
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare update account sig type stmt err: %w", err)
 	}
 
 	return w, nil
 }
 
+func (w *Writer) Close() {
+	w.addBlockHeaderStmt.Close()
+	w.addTxnStmt.Close()
+	w.addTxnParticipantStmt.Close()
+	w.updateAssetStmt.Close()
+	w.updateAccountAssetStmt.Close()
+	w.updateAppStmt.Close()
+	w.updateAccountAppStmt.Close()
+	w.deleteAccountStmt.Close()
+	w.updateAccountStmt.Close()
+	w.deleteAssetStmt.Close()
+	w.deleteAccountAssetStmt.Close()
+	w.deleteAppStmt.Close()
+	w.deleteAccountAppStmt.Close()
+	w.updateAccountKeyTypeStmt.Close()
+}
+
 func (w *Writer) addBlockHeader(blockHeader bookkeeping.BlockHeader) error {
-	_, err := w.tx.Exec(
-		AddBlockHeaderQuery,
+	_, err := w.addBlockHeaderStmt.Exec(
 		uint64(blockHeader.Round), time.Unix(blockHeader.TimeStamp, 0).UTC(),
 		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(blockHeader))
 	if err != nil {

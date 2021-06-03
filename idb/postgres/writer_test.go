@@ -34,6 +34,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
@@ -84,6 +85,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
@@ -172,6 +174,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
@@ -229,6 +232,7 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
@@ -312,6 +316,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -419,6 +424,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -494,6 +500,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -554,6 +561,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -652,6 +660,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -713,6 +722,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -816,6 +826,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -883,6 +894,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -985,6 +997,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -1028,7 +1041,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	appID := basics.AppIndex(3)
 	appLocalState := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
-			string([]byte{0xFF}): { // try a non-utf8 key
+			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 4,
 			},
 		},
@@ -1052,6 +1065,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -1139,7 +1153,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	appID := basics.AppIndex(3)
 	appLocalState := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
-			string([]byte{0xFF}): { // try a non-utf8 key
+			string([]byte{0xff}): { // try a non-utf8 key
 				Type: 4,
 			},
 		},
@@ -1157,6 +1171,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, delta)
 		require.NoError(t, err)
@@ -1212,6 +1227,7 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
 		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)

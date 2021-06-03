@@ -184,6 +184,7 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
+		defer writer.Close()
 
 		err = writer.AddBlock(block, modifiedTxns, delta)
 		if err != nil {
