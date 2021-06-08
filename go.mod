@@ -12,6 +12,7 @@ require (
 	github.com/getkin/kin-openapi v0.22.0
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/lib/pq v1.5.1
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/orlangure/gnomock v0.12.0
 	github.com/sirupsen/logrus v1.5.0

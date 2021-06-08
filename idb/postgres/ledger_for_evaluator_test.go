@@ -2,25 +2,17 @@ package postgres
 
 import (
 	"context"
-	//"database/sql"
-	//"encoding/base32"
 	"testing"
-	//"time"
 
-	//"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 
-	//"github.com/algorand/go-algorand/data/transactions"
-	//"github.com/algorand/go-algorand/ledger/ledgercore"
-	//"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	//"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	ledger "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -43,7 +35,8 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, header.GenesisHash)
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, header.GenesisHash, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -95,7 +88,8 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -126,7 +120,8 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -160,7 +155,8 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -197,7 +193,8 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -259,7 +256,8 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -323,7 +321,8 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -385,7 +384,8 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -418,7 +418,8 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -444,7 +445,8 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -469,7 +471,8 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -495,7 +498,8 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback()
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, crypto.Digest{})
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -517,7 +521,8 @@ func TestLedgerForEvaluatorGenesisHash(t *testing.T) {
 	var genesisHash crypto.Digest
 	genesisHash[0] = 3
 
-	l, err := ledger.MakeLedgerForEvaluator(tx, genesisHash)
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, genesisHash, basics.Address{})
 	require.NoError(t, err)
 	defer l.Close()
 

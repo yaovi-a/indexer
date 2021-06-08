@@ -36,6 +36,10 @@ const appLocalStatesQuery =
 type LedgerForEvaluator struct {
 	tx *sql.Tx
 	genesisHash crypto.Digest
+	// Indexer currently does not store the balance of the rewards pool account, but
+	// go-algorand's eval checks that it satisfies the minimum balance. We thus return
+	// a fake amount. TODO: remove.
+	rewardsPoolAddress basics.Address
 
 	blockHeaderStmt *sql.Stmt
 	assetCreatorStmt *sql.Stmt
@@ -47,10 +51,11 @@ type LedgerForEvaluator struct {
 	appLocalStatesStmt *sql.Stmt
 }
 
-func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, rewardsPoolAddress basics.Address) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx: tx,
 		genesisHash: genesisHash,
+		rewardsPoolAddress: rewardsPoolAddress,
 	}
 
 	var err error
@@ -110,7 +115,7 @@ func (l *LedgerForEvaluator) Close() {
 	l.appLocalStatesStmt.Close()
 }
 
-func (l *LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {
+func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {
 	row := l.blockHeaderStmt.QueryRow(uint64(round))
 
 	var header []byte
@@ -127,7 +132,7 @@ func (l *LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHead
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basics.Round, basics.Round, transactions.Txid, ledger.TxLease) error {
+func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basics.Round, basics.Round, transactions.Txid, ledger.TxLease) error {
 	// This function is not used by evaluator.
 	return nil
 }
@@ -289,12 +294,25 @@ func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[ba
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
+func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
+	fmt.Printf("LookupWithoutRewards() address: %s\n", address.String())
+
+	if address == l.rewardsPoolAddress {
+		var balance uint64 = 10 * 1000 * 1000 * 1000 * 1000
+		accountData := basics.AccountData{
+			MicroAlgos: basics.MicroAlgos{Raw: balance},
+		}
+		fmt.Printf("LookupWithoutRewards() h0 accountData: %+v\n", accountData)
+		return accountData, round, nil
+	}
+
 	accountData, exists, err := l.readAccountTable(address)
 	if err != nil {
+		fmt.Printf("LookupWithoutRewards() h1 err: %v\n", err)
 		return basics.AccountData{}, basics.Round(0), err
 	}
 	if !exists {
+		fmt.Printf("LookupWithoutRewards() h2\n")
 		return basics.AccountData{}, round, nil
 	}
 
@@ -318,16 +336,19 @@ func (l *LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address ba
 		return basics.AccountData{}, basics.Round(0), err
 	}
 
+	fmt.Printf("LookupWithoutRewards() h3 accountData: %+v\n", accountData)
 	return accountData, round, nil
 }
 
-func (l *LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.CreatableIndex, ctype basics.CreatableType) (basics.Address, bool, error) {
+func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.CreatableIndex, ctype basics.CreatableType) (basics.Address, bool, error) {
 	var row *sql.Row
 
 	switch ctype {
 	case basics.AssetCreatable:
+		fmt.Printf("GetCreatorForRound() asset %d\n", cindex)
 		row = l.assetCreatorStmt.QueryRow(uint64(cindex))
 	case basics.AppCreatable:
+		fmt.Printf("GetCreatorForRound() app %d\n", cindex)
 		row = l.appCreatorStmt.QueryRow(uint64(cindex))
 	default:
 		panic("unknown creatable type")
@@ -348,16 +369,16 @@ func (l *LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cr
 	return address, true, nil
 }
 
-func (l *LedgerForEvaluator) GenesisHash() crypto.Digest {
+func (l LedgerForEvaluator) GenesisHash() crypto.Digest {
 	return l.genesisHash
 }
 
-func (l *LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals, error) {
+func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals, error) {
 	// This function is not used by evaluator.
 	return ledgercore.AccountTotals{}, nil
 }
 
-func (l *LedgerForEvaluator) CompactCertVoters(basics.Round) (*ledger.VotersForRound, error) {
+func (l LedgerForEvaluator) CompactCertVoters(basics.Round) (*ledger.VotersForRound, error) {
 	// This function is not used by evaluator.
 	return nil, nil
 }

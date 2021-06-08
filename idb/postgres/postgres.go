@@ -20,6 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	// Load the postgres sql.DB implementation
@@ -28,9 +29,10 @@ import (
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/idb/migration"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 )
 
 const stateMetastateKey = "state"
@@ -160,25 +162,26 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 	defer db.accountingLock.Unlock()
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
-		nextRound, err := db.getNextRoundToAccount(tx)
+		importState, err := db.GetImportState()
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 
-		if block.Round() != basics.Round(nextRound) {
+		/*
+		importState.AccountRound++
+
+		if block.Round() != basics.Round(importState.AccountRound) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), nextRound)
-		}
-
-		/*
-		l := ledgerForEvaluator{
-			tx: tx,
-			genesisHash: block.GenesisHash(),
+				block.Round(), importState.AccountRound)
 		}
 		*/
-		var modifiedTxns []transactions.SignedTxnInBlock
-		var delta ledgercore.StateDelta
+		importState.AccountRound = int64(block.Round())
+
+		err = db.SetImportState(importState)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
 
 		writer, err := writer.MakeWriter(tx)
 		if err != nil {
@@ -186,9 +189,36 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 		}
 		defer writer.Close()
 
-		err = writer.AddBlock(block, modifiedTxns, delta)
-		if err != nil {
-			return fmt.Errorf("AddBlock() err: %w", err)
+		if block.Round() == basics.Round(0) {
+			// Block 0 is special, we cannot run the evaluator on it.
+			// It contains no transactions, so just write the header.
+			err := writer.AddBlock(block, nil, ledgercore.StateDelta{})
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+		} else {
+			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+				tx, block.GenesisHash(), block.RewardsPool)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
+			if !ok {
+				return fmt.Errorf(
+					"AddBlock() cannot find proto verstion %s", block.BlockHeader.CurrentProtocol)
+			}
+			proto.EnableAssetCloseAmount = true
+
+			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			if err != nil {
+				return fmt.Errorf("AddBlock() eval err: %w", err)
+			}
+
+			err = writer.AddBlock(block, modifiedTxns, delta)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
 		}
 
 		err = tx.Commit()
@@ -243,12 +273,14 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
 		_, err = setAccount.Exec(
-			addr[:], alloc.State.MicroAlgos, encoding.EncodeAccountData(alloc.State), 0)
+			addr[:], alloc.State.MicroAlgos.Raw, encoding.EncodeAccountData(alloc.State), 0)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
-	var istate idb.ImportState
+	istate := idb.ImportState{
+		AccountRound: -1,
+	}
 	sjs := string(encoding.EncodeJSON(istate))
 	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
 	if err != nil {
@@ -336,18 +368,6 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) 
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
-}
-
-// If `tx` is nil, make a standalone query.
-func (db *IndexerDb) getNextRoundToAccount(tx *sql.Tx) (uint64, error) {
-	lastRound, err := db.getMaxRoundAccounted(tx)
-	if err == idb.ErrorNotInitialized {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("getNextRoundToAccount() err: %w", err)
-	}
-	return lastRound + 1, nil
 }
 
 func (db *IndexerDb) getMaxRoundLoaded() (round uint64, err error) {

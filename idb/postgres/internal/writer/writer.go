@@ -62,23 +62,22 @@ const updateAccountQuery =
 const deleteAssetQuery =
 	"INSERT INTO asset " +
 	"(index, creator_addr, params, deleted, created_at, closed_at) " +
-	"VALUES($1, $2, $3, TRUE, $4, $4) ON CONFLICT (index) DO UPDATE SET " +
+	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET " +
 	"creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = TRUE, " +
 	"closed_at = EXCLUDED.closed_at"
 const deleteAccountAssetQuery =
 	"INSERT INTO account_asset " +
 	"(addr, assetid, amount, frozen, deleted, created_at, closed_at) " +
-	"VALUES($1, $2, $3, $4, TRUE, $5, $5) ON CONFLICT (addr, assetid) DO UPDATE SET " +
-	"amount = EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = TRUE, " +
-	"closed_at = EXCLUDED.closed_at"
+	"VALUES($1, $2, 0, false, TRUE, $3, $3) ON CONFLICT (addr, assetid) DO UPDATE SET " +
+	"amount = EXCLUDED.amount, deleted = TRUE, closed_at = EXCLUDED.closed_at"
 const deleteAppQuery =
 	"INSERT INTO app (index, creator, params, deleted, created_at, closed_at) " +
-	"VALUES($1, $2, $3, TRUE, $4, $4) ON CONFLICT (index) DO UPDATE SET " +
+	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET " +
 	"creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = TRUE, " +
 	"closed_at = EXCLUDED.closed_at"
 const deleteAccountAppQuery =
 	"INSERT INTO account_app (addr, app, localstate, deleted, created_at, closed_at) " +
-	"VALUES($1, $2, $3, TRUE, $4, $4) ON CONFLICT (addr, app) DO UPDATE SET " +
+	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET " +
 	"localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at"
 const updateAccountKeyTypeQuery =
 	"UPDATE account SET keytype = $1 WHERE addr = $2"
@@ -388,34 +387,31 @@ func (w *Writer) writeBalanceRecords(round basics.Round, records []basics.Balanc
 }
 
 func (w *Writer) writeDeletedAccountCreatables(round basics.Round, address basics.Address, creatables ledgercore.DeletedAccountCreatables) error {
-	for assetid, params := range creatables.AssetParams {
-		_, err := w.deleteAssetStmt.Exec(
-			uint64(assetid), address[:], encoding.EncodeAssetParams(params), uint64(round))
+	for assetid := range creatables.AssetParams {
+		_, err := w.deleteAssetStmt.Exec(uint64(assetid), address[:], uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeDeletedAccountCreatables() exec delete asset err: %w", err)
 		}
 	}
 
-	for assetid, holding := range creatables.Assets {
+	for assetid := range creatables.Assets {
 		_, err := w.deleteAccountAssetStmt.Exec(
-			address[:], uint64(assetid), holding.Amount, holding.Frozen, uint64(round))
+			address[:], uint64(assetid), uint64(round))
 		if err != nil {
 			return fmt.Errorf(
 				"writeDeletedAccountCreatables() exec delete account asset err: %w", err)
 		}
 	}
 
-	for appid, params := range creatables.AppParams {
-		_, err := w.deleteAppStmt.Exec(
-			uint64(appid), address[:], encoding.EncodeAppParams(params), uint64(round))
+	for appid := range creatables.AppParams {
+		_, err := w.deleteAppStmt.Exec(uint64(appid), address[:], uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeDeletedAccountCreatables() exec delete app err: %w", err)
 		}
 	}
 
-	for appid, state := range creatables.AppLocalStates {
-		_, err := w.deleteAccountAppStmt.Exec(
-			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
+	for appid := range creatables.AppLocalStates {
+		_, err := w.deleteAccountAppStmt.Exec(address[:], uint64(appid), uint64(round))
 		if err != nil {
 			return fmt.Errorf(
 				"writeDeletedAccountCreatables() exec delete account app err: %w", err)

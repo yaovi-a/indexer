@@ -71,15 +71,16 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(2)
 	block.BlockHeader.TimeStamp = 333
 	block.BlockHeader.RewardsLevel = 111111
+	block.BlockHeader.TxnCounter = 9;
 	block.Payset = make([]transactions.SignedTxnInBlock, 2)
 	block.Payset[0] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakePaymentTxn(
-			2, 1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
 			basics.Address{}),
 	}
 	block.Payset[1] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakeAssetConfigTxn(
-			2, 9, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
+			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
 	}
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
@@ -164,7 +165,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	payset := make([]transactions.SignedTxnInBlock, 1)
 	payset[0] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakeAssetTransferTxn(
-			test.Round, 1, 2, 3, test.AccountA, test.AccountB, test.AccountC),
+			1, 2, 3, test.AccountA, test.AccountB, test.AccountC),
 	}
 
 	block.Payset = make([]transactions.SignedTxnInBlock, 1)
@@ -221,12 +222,12 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	block.Payset = make([]transactions.SignedTxnInBlock, 2)
 	block.Payset[0] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakePaymentTxn(
-			2, 1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
 			basics.Address{}),
 	}
 	block.Payset[1] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakeAssetConfigTxn(
-			2, 9, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC),
+			100, 1, false, "ma", "myasset", "myasset.com", test.AccountC),
 	}
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
@@ -476,7 +477,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 
 	txn := transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakePaymentTxn(
-			2, 1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
 			basics.Address{}),
 	}
 	txn.Sig[0] = 5 // set signature so that keytype for account is updated
@@ -600,12 +601,10 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	assetHolding.Amount++
-	assetHolding.Frozen = false
 	delta.DeletedCreatables = map[basics.Address]ledgercore.DeletedAccountCreatables{
 		test.AccountA: {
-			Assets: map[basics.AssetIndex]basics.AssetHolding{
-				assetID: assetHolding,
+			Assets: map[basics.AssetIndex]struct{}{
+				assetID: {},
 			},
 		},
 	}
@@ -623,7 +622,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
-	assert.Equal(t, assetHolding.Amount, amount)
+	assert.Equal(t, uint64(0), amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round()) - 1, createdAt)
@@ -643,15 +642,11 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 
 	assetID := basics.AssetIndex(3)
-	assetHolding := basics.AssetHolding{
-		Amount: 4,
-		Frozen: true,
-	}
 	delta := ledgercore.StateDelta{
 		DeletedCreatables: map[basics.Address]ledgercore.DeletedAccountCreatables{
 			test.AccountA: {
-				Assets: map[basics.AssetIndex]basics.AssetHolding{
-					assetID: assetHolding,
+				Assets: map[basics.AssetIndex]struct{}{
+					assetID: {},
 				},
 			},
 		},
@@ -684,8 +679,8 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
-	assert.Equal(t, assetHolding.Amount, amount)
-	assert.Equal(t, assetHolding.Frozen, frozen)
+	assert.Equal(t, uint64(0), amount)
+	assert.False(t, frozen)
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
@@ -763,12 +758,10 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	assetParams.Total++
-
 	delta.DeletedCreatables = map[basics.Address]ledgercore.DeletedAccountCreatables{
 		test.AccountA: {
-			AssetParams: map[basics.AssetIndex]basics.AssetParams{
-				assetID: assetParams,
+			AssetParams: map[basics.AssetIndex]struct{}{
+				assetID: {},
 			},
 		},
 	}
@@ -789,7 +782,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, assetParams, paramsRead)
+		assert.Equal(t, basics.AssetParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round()) - 1, createdAt)
@@ -809,15 +802,11 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 
 	assetID := basics.AssetIndex(3)
-	assetParams := basics.AssetParams{
-		Total: 99999,
-		Manager: test.AccountB,
-	}
 	delta := ledgercore.StateDelta{
 		DeletedCreatables: map[basics.Address]ledgercore.DeletedAccountCreatables{
 			test.AccountA: {
-				AssetParams: map[basics.AssetIndex]basics.AssetParams{
-					assetID: assetParams,
+				AssetParams: map[basics.AssetIndex]struct{}{
+					assetID: {},
 				},
 			},
 		},
@@ -852,7 +841,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, assetParams, paramsRead)
+		assert.Equal(t, basics.AssetParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
@@ -935,12 +924,10 @@ func TestWriterAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	appParams.ApprovalProgram[0]++
-
 	delta.DeletedCreatables = map[basics.Address]ledgercore.DeletedAccountCreatables{
 		test.AccountA: {
-			AppParams: map[basics.AppIndex]basics.AppParams{
-				appID: appParams,
+			AppParams: map[basics.AppIndex]struct{}{
+				appID: {},
 			},
 		},
 	}
@@ -961,7 +948,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, appParams, paramsRead)
+		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round()) - 1, createdAt)
@@ -981,14 +968,11 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 
 	appID := basics.AppIndex(3)
-	appParams := basics.AppParams{
-		ApprovalProgram: []byte{3, 4, 5},
-	}
 	delta := ledgercore.StateDelta{
 		DeletedCreatables: map[basics.Address]ledgercore.DeletedAccountCreatables{
 			test.AccountA: {
-				AppParams: map[basics.AppIndex]basics.AppParams{
-					appID: appParams,
+				AppParams: map[basics.AppIndex]struct{}{
+					appID: {},
 				},
 			},
 		},
@@ -1024,7 +1008,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
-		assert.Equal(t, appParams, paramsRead)
+		assert.Equal(t, basics.AppParams{}, paramsRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
@@ -1103,14 +1087,13 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
 
-	// Now delete the asset.
+	// Now delete the app.
 	block.BlockHeader.Round++
 
-	appLocalState.KeyValue["bcd"] = basics.TealValue{Type: 9}
 	delta.DeletedCreatables = map[basics.Address]ledgercore.DeletedAccountCreatables{
 		test.AccountA: {
-			AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
-				appID: appLocalState,
+			AppLocalStates: map[basics.AppIndex]struct{}{
+				appID: {},
 			},
 		},
 	}
@@ -1131,7 +1114,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
-		assert.Equal(t, appLocalState, appLocalStateRead)
+		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, uint64(block.Round()) - 1, createdAt)
@@ -1151,18 +1134,11 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 
 	appID := basics.AppIndex(3)
-	appLocalState := basics.AppLocalState{
-		KeyValue: map[string]basics.TealValue{
-			string([]byte{0xff}): { // try a non-utf8 key
-				Type: 4,
-			},
-		},
-	}
 	delta := ledgercore.StateDelta{
 		DeletedCreatables: map[basics.Address]ledgercore.DeletedAccountCreatables{
 			test.AccountA: {
-				AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
-					appID: appLocalState,
+				AppLocalStates: map[basics.AppIndex]struct{}{
+					appID: {},
 				},
 			},
 		},
@@ -1197,7 +1173,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
-		assert.Equal(t, appLocalState, appLocalStateRead)
+		assert.Equal(t, basics.AppLocalState{}, appLocalStateRead)
 	}
 	assert.True(t, deleted)
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
@@ -1216,12 +1192,12 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	block.Payset = make([]transactions.SignedTxnInBlock, 2)
 	block.Payset[0] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakePaymentTxn(
-			2, 1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
 			basics.Address{}),
 	}
 	block.Payset[1] = transactions.SignedTxnInBlock{
 		SignedTxnWithAD: test.MakeAssetConfigTxn(
-			2, 9, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
+			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
 	}
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
