@@ -18,6 +18,7 @@ func decodeBase64(data string) ([]byte, error) {
 
 func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
 	res := header.BlockHeader
+	res.Branch = bookkeeping.BlockHash(header.BranchOverride)
 	res.FeeSink = basics.Address(header.FeeSinkOverride)
 	res.RewardsPool = basics.Address(header.RewardsPoolOverride)
 	return res

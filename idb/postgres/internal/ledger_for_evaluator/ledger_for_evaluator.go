@@ -14,47 +14,43 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
-const blockHeaderQuery =
-	"SELECT header FROM block_header WHERE round = $1"
-const assetCreatorQuery =
-	"SELECT creator_addr FROM asset WHERE index = $1 AND NOT deleted"
-const appCreatorQuery =
-	"SELECT creator FROM app WHERE index = $1 AND NOT deleted"
-const accountQuery =
-	"SELECT microalgos, rewardsbase, rewards_total, account_data FROM account " +
+const blockHeaderQuery = "SELECT header FROM block_header WHERE round = $1"
+const assetCreatorQuery = "SELECT creator_addr FROM asset " +
+	"WHERE index = $1 AND NOT deleted"
+const appCreatorQuery = "SELECT creator FROM app WHERE index = $1 AND NOT deleted"
+const accountQuery = "SELECT microalgos, rewardsbase, rewards_total, account_data " +
+	"FROM account WHERE addr = $1 AND NOT deleted"
+const assetHoldingsQuery = "SELECT assetid, amount, frozen FROM account_asset " +
 	"WHERE addr = $1 AND NOT deleted"
-const assetHoldingsQuery =
-	"SELECT assetid, amount, frozen FROM account_asset WHERE addr = $1 AND NOT deleted"
-const assetParamsQuery =
-	"SELECT index, params FROM asset WHERE creator_addr = $1 AND NOT deleted"
-const appParamsQuery =
-	"SELECT index, params FROM app WHERE creator = $1 AND NOT deleted"
-const appLocalStatesQuery =
-	"SELECT app, localstate FROM account_app WHERE addr = $1 AND NOT deleted"
+const assetParamsQuery = "SELECT index, params FROM asset " +
+	"WHERE creator_addr = $1 AND NOT deleted"
+const appParamsQuery = "SELECT index, params FROM app WHERE creator = $1 AND NOT deleted"
+const appLocalStatesQuery = "SELECT app, localstate FROM account_app " +
+	"WHERE addr = $1 AND NOT deleted"
 
 // Implements `ledgerForEvaluator` interface from go-algorand and is used for accounting.
 type LedgerForEvaluator struct {
-	tx *sql.Tx
+	tx          *sql.Tx
 	genesisHash crypto.Digest
 	// Indexer currently does not store the balance of the rewards pool account, but
 	// go-algorand's eval checks that it satisfies the minimum balance. We thus return
 	// a fake amount. TODO: remove.
 	rewardsPoolAddress basics.Address
 
-	blockHeaderStmt *sql.Stmt
-	assetCreatorStmt *sql.Stmt
-	appCreatorStmt *sql.Stmt
-	accountStmt *sql.Stmt
-	assetHoldingsStmt *sql.Stmt
-	assetParamsStmt *sql.Stmt
-	appParamsStmt *sql.Stmt
+	blockHeaderStmt    *sql.Stmt
+	assetCreatorStmt   *sql.Stmt
+	appCreatorStmt     *sql.Stmt
+	accountStmt        *sql.Stmt
+	assetHoldingsStmt  *sql.Stmt
+	assetParamsStmt    *sql.Stmt
+	appParamsStmt      *sql.Stmt
 	appLocalStatesStmt *sql.Stmt
 }
 
 func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, rewardsPoolAddress basics.Address) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
-		tx: tx,
-		genesisHash: genesisHash,
+		tx:                 tx,
+		genesisHash:        genesisHash,
 		rewardsPoolAddress: rewardsPoolAddress,
 	}
 
@@ -295,24 +291,19 @@ func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[ba
 }
 
 func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
-	fmt.Printf("LookupWithoutRewards() address: %s\n", address.String())
-
 	if address == l.rewardsPoolAddress {
 		var balance uint64 = 10 * 1000 * 1000 * 1000 * 1000
 		accountData := basics.AccountData{
 			MicroAlgos: basics.MicroAlgos{Raw: balance},
 		}
-		fmt.Printf("LookupWithoutRewards() h0 accountData: %+v\n", accountData)
 		return accountData, round, nil
 	}
 
 	accountData, exists, err := l.readAccountTable(address)
 	if err != nil {
-		fmt.Printf("LookupWithoutRewards() h1 err: %v\n", err)
 		return basics.AccountData{}, basics.Round(0), err
 	}
 	if !exists {
-		fmt.Printf("LookupWithoutRewards() h2\n")
 		return basics.AccountData{}, round, nil
 	}
 
@@ -336,7 +327,6 @@ func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address bas
 		return basics.AccountData{}, basics.Round(0), err
 	}
 
-	fmt.Printf("LookupWithoutRewards() h3 accountData: %+v\n", accountData)
 	return accountData, round, nil
 }
 
@@ -345,10 +335,8 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 
 	switch ctype {
 	case basics.AssetCreatable:
-		fmt.Printf("GetCreatorForRound() asset %d\n", cindex)
 		row = l.assetCreatorStmt.QueryRow(uint64(cindex))
 	case basics.AppCreatable:
-		fmt.Printf("GetCreatorForRound() app %d\n", cindex)
 		row = l.appCreatorStmt.QueryRow(uint64(cindex))
 	default:
 		panic("unknown creatable type")

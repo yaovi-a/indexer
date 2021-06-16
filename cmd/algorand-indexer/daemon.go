@@ -190,10 +190,10 @@ func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
 
 	err := bih.imp.ImportBlock(block)
-	maybeFail(err, "Adding block %d to database failed", block.Block.Round)
+	maybeFail(err, "Adding block %d to database failed", block.Block.Round())
 
 	dt := time.Since(start)
 	// record metric
 	importTimeHistogramSeconds.Observe(dt.Seconds())
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 }

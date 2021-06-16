@@ -88,9 +88,9 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
-	log *log.Logger
-	db *sql.DB
-	migration *migration.Migration
+	log            *log.Logger
+	db             *sql.DB
+	migration      *migration.Migration
 	accountingLock sync.Mutex
 }
 
@@ -163,32 +163,13 @@ func (db *IndexerDb) Reset() (err error) {
 }
 
 func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
+	db.log.Printf("adding block %d", block.Round())
+
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		defer tx.Rollback()
-
-		/*
-		importState, err := db.getImportState(tx)
-		if err != nil {
-			return fmt.Errorf("AddBlock() err: %w", err)
-		}
-
-		importState.AccountRound++
-
-		if block.Round() != basics.Round(importState.AccountRound) {
-			return fmt.Errorf(
-				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), importState.AccountRound)
-		}
-		importState.AccountRound = int64(block.Round())
-
-		err = db.setImportState(tx, importState)
-		if err != nil {
-			return fmt.Errorf("AddBlock() err: %w", err)
-		}
-		*/
 
 		writer, err := writer.MakeWriter(tx)
 		if err != nil {
@@ -204,6 +185,26 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
+			importstate, err := db.getImportState(tx)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			if importstate.AccountRound == nil {
+				return fmt.Errorf("AddBlock() import state not initialized")
+			}
+			*importstate.AccountRound++
+			if block.Round() != basics.Round(*importstate.AccountRound) {
+				return fmt.Errorf(
+					"AddBlock() adding block round %d but next round to account is %d",
+					block.Round(), *importstate.AccountRound)
+			}
+
+			err = db.setImportState(tx, importstate)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
 			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 				tx, block.GenesisHash(), block.RewardsPool)
 			if err != nil {
@@ -213,7 +214,7 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
 				return fmt.Errorf(
-					"AddBlock() cannot find proto verstion %s", block.BlockHeader.CurrentProtocol)
+					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
 			}
 			proto.EnableAssetCloseAmount = true
 
@@ -385,8 +386,7 @@ func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
 }
 
-// GetNextRoundToLoad is part of idb.IndexerDB
-func (db *IndexerDb) GetNextRoundToLoad() (uint64, error) {
+func (db *IndexerDb) getNextRoundToLoad() (uint64, error) {
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 
 	var nullableRound sql.NullInt64
@@ -969,7 +969,7 @@ func tealValueToModel(tv basics.TealValue) models.TealValue {
 	case basics.TealBytesType:
 		return models.TealValue{
 			Bytes: encoding.Base64([]byte(tv.Bytes)),
-			Type: uint64(tv.Type),
+			Type:  uint64(tv.Type),
 		}
 	}
 	return models.TealValue{}

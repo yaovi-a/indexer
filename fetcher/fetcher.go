@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	log "github.com/sirupsen/logrus"
 )
 

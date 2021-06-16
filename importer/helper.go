@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -26,9 +26,9 @@ import (
 // NewImportHelper builds an ImportHelper
 func NewImportHelper(genesisJSONPath string, blockFileLimite int, l *log.Logger) *ImportHelper {
 	return &ImportHelper{
-		GenesisJSONPath:    genesisJSONPath,
-		BlockFileLimit:     blockFileLimite,
-		Log:                l,
+		GenesisJSONPath: genesisJSONPath,
+		BlockFileLimit:  blockFileLimite,
+		Log:             l,
 	}
 }
 
@@ -92,28 +92,12 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-// Decode a block and add it to the IndexerDb. Returns number of transactions and an error.
-func importBlockBytes(blockbytes []byte, imp *Importer) (int, error) {
-	var blockContainer rpcs.EncodedBlockCert
-	err := protocol.Decode(blockbytes, &blockContainer)
-	if err != nil {
-		return 0, fmt.Errorf("error decoding blockbytes, %v", err)
-	}
-
-	imp.ImportBlock(&blockContainer)
-
-	return len(blockContainer.Block.Payset), nil
-}
-
-func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount int, err error) {
-	lastlog := time.Now()
-	blocks = 0
-	prevBlocks := 0
+func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
 	txCount = 0
-	var btxns int
+	blocks := make([]rpcs.EncodedBlockCert, 0)
 	for err == nil {
 		if header.Typeflag != tar.TypeReg {
 			err = fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
@@ -125,33 +109,38 @@ func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount
 			err = fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
 			return
 		}
-		btxns, err = importBlockBytes(blockbytes, imp)
+		var blockContainer rpcs.EncodedBlockCert
+		err = protocol.Decode(blockbytes, &blockContainer)
 		if err != nil {
-			err = fmt.Errorf("error importing tar entry %#v: %v", header.Name, err)
+			err = fmt.Errorf("error decoding blockbytes, %w", err)
 			return
 		}
-		txCount += btxns
-		blocks++
-		now := time.Now()
-		dt := now.Sub(lastlog)
-		if dt > (5 * time.Second) {
-			dblocks := blocks - prevBlocks
-			l.Infof("loaded from tar %v, %.1f/s", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
-			lastlog = now
-			prevBlocks = blocks
-		}
+		txCount += len(blockContainer.Block.Payset)
+		blocks = append(blocks, blockContainer)
 		header, err = tf.Next()
 	}
 	if err == io.EOF {
 		err = nil
 	}
+
+	less := func(i int, j int) bool {
+		return blocks[i].Block.Round() < blocks[j].Block.Round()
+	}
+	sort.Slice(blocks, less)
+
+	for _, blockContainer := range blocks {
+		err = imp.ImportBlock(&blockContainer)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
 func importFile(fname string, imp *Importer, l *log.Logger) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
-	var btxns int
 	l.Infof("importing %s ...", fname)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
@@ -174,10 +163,13 @@ func importFile(fname string, imp *Importer, l *log.Logger) (blocks, txCount int
 		// assume a standalone block msgpack blob
 		blockbytes, err := ioutil.ReadFile(fname)
 		maybeFail(err, l, "%s: could not read, %v", fname, err)
-		btxns, err = importBlockBytes(blockbytes, imp)
-		maybeFail(err, l, "%s: could not import, %v", fname, err)
+		var blockContainer rpcs.EncodedBlockCert
+		err = protocol.Decode(blockbytes, &blockContainer)
+		maybeFail(err, l, "cannot decode blockbytes err: %v", err)
+		err = imp.ImportBlock(&blockContainer)
+		maybeFail(err, l, "cannot import block err: %v", err)
 		blocks++
-		txCount += btxns
+		txCount += len(blockContainer.Block.Payset)
 	}
 	return
 }

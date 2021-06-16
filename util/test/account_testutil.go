@@ -33,7 +33,7 @@ var (
 )
 
 func init() {
-	GenesisHash[0] = 77;
+	GenesisHash[0] = 77
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -49,15 +49,16 @@ func DecodeAddressOrPanic(addr string) basics.Address {
 	return result
 }
 
-// MakeAssetConfigOrPanic is a helper to ensure test asset config are initialized.
-func MakeAssetConfigTxn(total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
+// MakeCreateAssetTxn is a helper to ensure test asset config are initialized.
+func MakeCreateAssetTxn(total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
 				Type: "acfg",
 				Header: transactions.Header{
-					Sender:     addr,
-					Fee:        basics.MicroAlgos{Raw: 1000},
+					Sender:      addr,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					GenesisHash: GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					AssetParams: basics.AssetParams{
@@ -86,8 +87,9 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 			Txn: transactions.Transaction{
 				Type: "afrz",
 				Header: transactions.Header{
-					Sender:     sender,
-					Fee:        basics.MicroAlgos{Raw: 1000},
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					GenesisHash: GenesisHash,
 				},
 				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
 					FreezeAccount: freezeAccount,
@@ -100,14 +102,15 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 }
 
 // MakeAssetTxnOrPanic creates an asset transfer transaction.
-func MakeAssetTransferTxn(assetid, amt, closeAmt uint64, sender, receiver, close basics.Address) transactions.SignedTxnWithAD {
+func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
 				Type: "axfer",
 				Header: transactions.Header{
-					Sender:     sender,
-					Fee:        basics.MicroAlgos{Raw: 1000},
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					GenesisHash: GenesisHash,
 				},
 				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 					XferAsset:   basics.AssetIndex(assetid),
@@ -119,22 +122,23 @@ func MakeAssetTransferTxn(assetid, amt, closeAmt uint64, sender, receiver, close
 				},
 			},
 		},
-		ApplyData: transactions.ApplyData{
-			AssetClosingAmount: closeAmt,
-		},
 	}
 }
 
 func MakeAssetOptInTxn(assetid uint64, address basics.Address) transactions.SignedTxnWithAD {
-	return MakeAssetTransferTxn(assetid, 0, 0, address, address, basics.Address{})
+	return MakeAssetTransferTxn(assetid, 0, address, address, basics.Address{})
 }
 
 // MakeAssetDestroyTxn makes a transaction that destroys an asset.
-func MakeAssetDestroyTxn(assetID uint64) transactions.SignedTxnWithAD {
+func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
 				Type: "acfg",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(assetID),
 				},
@@ -151,9 +155,10 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 			Txn: transactions.Transaction{
 				Type: "pay",
 				Header: transactions.Header{
-					Sender:     sender,
-					Fee:        basics.MicroAlgos{Raw: fee},
-					RekeyTo:    rekeyTo,
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: fee},
+					GenesisHash: GenesisHash,
+					RekeyTo:     rekeyTo,
 				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
@@ -184,7 +189,8 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 			Txn: transactions.Transaction{
 				Type: "keyreg",
 				Header: transactions.Header{
-					Sender:     sender,
+					Sender:      sender,
+					GenesisHash: GenesisHash,
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
 					VotePK:          votePK,
@@ -197,38 +203,32 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) bookkeeping.Block {
-	var txns []transactions.SignedTxnInBlock
+func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
+	res := bookkeeping.MakeBlock(prevHeader)
 
-	for _, txn := range inputs {
-		txns = append(txns, transactions.SignedTxnInBlock{
-			SignedTxnWithAD: transactions.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
-			HasGenesisID:    true,
-		})
+	res.RewardsState = bookkeeping.RewardsState{
+		FeeSink:     FeeAddr,
+		RewardsPool: RewardAddr,
+	}
+	res.TxnCounter = prevHeader.TxnCounter + uint64(len(inputs))
+
+	for _, stxnad := range inputs {
+		stxnib, err := res.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+		if err != nil {
+			return bookkeeping.Block{}, err
+		}
+
+		res.Payset = append(res.Payset, stxnib)
 	}
 
-	return bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(prevHeader.Round + 1),
-			Branch: prevHeader.Hash(),
-			GenesisID: MakeGenesis().ID(),
-			GenesisHash: GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				FeeSink: FeeAddr,
-				RewardsPool: RewardAddr,
-			},
-			UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},
-			TxnCounter: prevHeader.TxnCounter + uint64(len(inputs)),
-		},
-		Payset: txns,
-	}
+	return res, nil
 }
 
 func MakeGenesis() bookkeeping.Genesis {
 	return bookkeeping.Genesis{
 		SchemaID: "main",
-		Network: "mynet",
-		Proto: Proto,
+		Network:  "mynet",
+		Proto:    Proto,
 		Allocation: []bookkeeping.GenesisAllocation{
 			{
 				Address: AccountA.String(),
@@ -256,17 +256,17 @@ func MakeGenesis() bookkeeping.Genesis {
 			},
 		},
 		RewardsPool: RewardAddr.String(),
-		FeeSink: FeeAddr.String(),
+		FeeSink:     FeeAddr.String(),
 	}
 }
 
 func MakeGenesisBlock() bookkeeping.Block {
 	return bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			GenesisID: MakeGenesis().ID(),
+			GenesisID:   MakeGenesis().ID(),
 			GenesisHash: GenesisHash,
 			RewardsState: bookkeeping.RewardsState{
-				FeeSink: FeeAddr,
+				FeeSink:     FeeAddr,
 				RewardsPool: RewardAddr,
 			},
 			UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},

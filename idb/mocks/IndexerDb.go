@@ -13,8 +13,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	rpcs "github.com/algorand/go-algorand/rpcs"
-
 	transactions "github.com/algorand/go-algorand/data/transactions"
 )
 
@@ -24,11 +22,11 @@ type IndexerDb struct {
 }
 
 // AddBlock provides a mock function with given fields: block
-func (_m *IndexerDb) AddBlock(block *rpcs.EncodedBlockCert) error {
+func (_m *IndexerDb) AddBlock(block bookkeeping.Block) error {
 	ret := _m.Called(block)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*rpcs.EncodedBlockCert) error); ok {
+	if rf, ok := ret.Get(0).(func(bookkeeping.Block) error); ok {
 		r0 = rf(block)
 	} else {
 		r0 = ret.Error(0)
@@ -106,37 +104,6 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
-<<<<<<< HEAD
-// CommitBlock provides a mock function with given fields: round, timestamp, rewardslevel, headerbytes
-func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	ret := _m.Called(round, timestamp, rewardslevel, headerbytes)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, int64, uint64, []byte) error); ok {
-		r0 = rf(round, timestamp, rewardslevel, headerbytes)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// CommitRoundAccounting provides a mock function with given fields: updates, round, blockHeader
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) error {
-	ret := _m.Called(updates, round, blockHeader)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.BlockHeader) error); ok {
-		r0 = rf(updates, round, blockHeader)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-=======
->>>>>>> e9c6167 (wip)
 // GetAccounts provides a mock function with given fields: ctx, opts
 func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
@@ -161,25 +128,14 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 }
 
 // GetBlock provides a mock function with given fields: ctx, round, options
-<<<<<<< HEAD
-func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.BlockHeader, []idb.TxnRow, error) {
+func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (bookkeeping.BlockHeader, []idb.TxnRow, error) {
 	ret := _m.Called(ctx, round, options)
 
-	var r0 types.BlockHeader
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) types.BlockHeader); ok {
+	var r0 bookkeeping.BlockHeader
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) bookkeeping.BlockHeader); ok {
 		r0 = rf(ctx, round, options)
 	} else {
-		r0 = ret.Get(0).(types.BlockHeader)
-=======
-func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (bookkeeping.Block, []idb.TxnRow, error) {
-	ret := _m.Called(ctx, round, options)
-
-	var r0 bookkeeping.Block
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) bookkeeping.Block); ok {
-		r0 = rf(ctx, round, options)
-	} else {
-		r0 = ret.Get(0).(bookkeeping.Block)
->>>>>>> e9c6167 (wip)
+		r0 = ret.Get(0).(bookkeeping.BlockHeader)
 	}
 
 	var r1 []idb.TxnRow
@@ -199,41 +155,6 @@ func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	}
 
 	return r0, r1, r2
-}
-
-<<<<<<< HEAD
-// GetDefaultFrozen provides a mock function with given fields:
-func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
-	ret := _m.Called()
-
-	var r0 map[uint64]bool
-	if rf, ok := ret.Get(0).(func() map[uint64]bool); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[uint64]bool)
-		}
-=======
-// GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
-	ret := _m.Called()
-
-	var r0 idb.ImportState
-	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(idb.ImportState)
->>>>>>> e9c6167 (wip)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // GetMaxRoundAccounted provides a mock function with given fields:
@@ -257,30 +178,6 @@ func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	return r0, r1
 }
 
-<<<<<<< HEAD
-// GetNextRoundToLoad provides a mock function with given fields:
-func (_m *IndexerDb) GetNextRoundToLoad() (uint64, error) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-=======
->>>>>>> e9c6167 (wip)
 // GetSpecialAccounts provides a mock function with given fields:
 func (_m *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
 	ret := _m.Called()
@@ -344,30 +241,6 @@ func (_m *IndexerDb) Reset() error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-<<<<<<< HEAD
-// StartBlock provides a mock function with given fields:
-func (_m *IndexerDb) StartBlock() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-=======
-// SetImportState provides a mock function with given fields: _a0
-func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
-		r0 = rf(_a0)
->>>>>>> e9c6167 (wip)
 	} else {
 		r0 = ret.Error(0)
 	}

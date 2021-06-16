@@ -25,7 +25,7 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 
 	query :=
 		"INSERT INTO block_header (round, realtime, rewardslevel, header) " +
-		"VALUES (2, 'epoch', 0, $1)"
+			"VALUES (2, 'epoch', 0, $1)"
 	header := bookkeeping.BlockHeader{
 		RewardsState: bookkeeping.RewardsState{
 			FeeSink: test.FeeAddr,
@@ -57,21 +57,21 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 
 	query :=
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
-		"created_at, account_data) " +
-		"VALUES ($1, $2, $3, $4, false, 0, $5)"
+			"created_at, account_data) " +
+			"VALUES ($1, $2, $3, $4, false, 0, $5)"
 
 	var voteID crypto.OneTimeSignatureVerifier
 	voteID[0] = 2
 	var selectionID crypto.VRFVerifier
 	selectionID[0] = 3
 	accountDataWritten := basics.AccountData{
-		Status: basics.Online,
-		VoteID: voteID,
-		SelectionID: selectionID,
-		VoteFirstValid: basics.Round(4),
-		VoteLastValid: basics.Round(5),
+		Status:          basics.Online,
+		VoteID:          voteID,
+		SelectionID:     selectionID,
+		VoteFirstValid:  basics.Round(4),
+		VoteLastValid:   basics.Round(5),
 		VoteKeyDilution: 6,
-		AuthAddr: test.AccountA,
+		AuthAddr:        test.AccountA,
 	}
 
 	accountDataFull := accountDataWritten
@@ -113,8 +113,8 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 
 	query :=
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
-		"created_at, account_data) " +
-		"VALUES ($1, 2, 3, 4, true, 0, $2)"
+			"created_at, account_data) " +
+			"VALUES ($1, 2, 3, 4, true, 0, $2)"
 
 	accountData := basics.AccountData{
 		MicroAlgos: basics.MicroAlgos{Raw: 5},
@@ -147,15 +147,15 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 
 	query :=
 		"INSERT INTO account " +
-		"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-		"VALUES ($1, $2, 0, 0, false, 0)"
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, $2, 0, 0, false, 0)"
 
 	accountDataFull := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 2},
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
-		Assets: make(map[basics.AssetIndex]basics.AssetHolding),
+		MicroAlgos:     basics.MicroAlgos{Raw: 2},
+		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
+		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams: make(map[basics.AppIndex]basics.AppParams),
+		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	_, err = db.db.Exec(query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
 	require.NoError(t, err)
@@ -183,14 +183,14 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 
 	query :=
 		"INSERT INTO account " +
-		"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-		"VALUES ($1, 0, 0, 0, false, 0)"
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, 0, 0, 0, false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
-		"VALUES ($1, $2, $3, $4, $5, 0)"
+			"VALUES ($1, $2, $3, $4, $5, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:], 1, 2, false, false)
 	require.NoError(t, err)
 	_, err = db.db.Exec(query, test.AccountA[:], 3, 4, true, false)
@@ -225,7 +225,7 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 			},
 		},
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams: make(map[basics.AppIndex]basics.AppParams),
+		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
@@ -238,14 +238,14 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 
 	query :=
 		"INSERT INTO account " +
-		"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-		"VALUES ($1, 0, 0, 0, false, 0)"
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, 0, 0, 0, false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-		"VALUES ($1, $2, $3, $4, 0)"
+			"VALUES ($1, $2, $3, $4, 0)"
 
 	_, err = db.db.Exec(
 		query, 1, test.AccountA[:],
@@ -286,9 +286,9 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 				Manager: test.AccountC,
 			},
 		},
-		Assets: make(map[basics.AssetIndex]basics.AssetHolding),
+		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams: make(map[basics.AppIndex]basics.AppParams),
+		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
@@ -301,14 +301,14 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 
 	query :=
 		"INSERT INTO account " +
-		"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-		"VALUES ($1, 0, 0, 0, false, 0)"
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, 0, 0, 0, false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-		"VALUES ($1, $2, $3, $4, 0)"
+			"VALUES ($1, $2, $3, $4, 0)"
 
 	params1 := basics.AppParams{
 		GlobalState: map[string]basics.TealValue{
@@ -345,8 +345,8 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	require.NoError(t, err)
 
 	accountDataExpected := basics.AccountData{
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
-		Assets: make(map[basics.AssetIndex]basics.AssetHolding),
+		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
+		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
 		AppParams: map[basics.AppIndex]basics.AppParams{
 			1: params1,
@@ -364,14 +364,14 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 
 	query :=
 		"INSERT INTO account " +
-		"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-		"VALUES ($1, 0, 0, 0, false, 0)"
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, 0, 0, 0, false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
-		"VALUES ($1, $2, $3, $4, 0)"
+			"VALUES ($1, $2, $3, $4, 0)"
 
 	params1 := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
@@ -411,7 +411,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 
 	accountDataExpected := basics.AccountData{
 		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
-		Assets: make(map[basics.AssetIndex]basics.AssetHolding),
+		Assets:      make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
 			1: params1,
 			2: params2,
@@ -429,7 +429,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-		"VALUES (2, $1, '{}', false, 0)"
+			"VALUES (2, $1, '{}', false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -458,7 +458,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-		"VALUES (2, $1, '{}', true, 0)"
+			"VALUES (2, $1, '{}', true, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -486,7 +486,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-		"VALUES (2, $1, '{}', false, 0)"
+			"VALUES (2, $1, '{}', false, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -515,7 +515,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-		"VALUES (2, $1, '{}', true, 0)"
+			"VALUES (2, $1, '{}', true, 0)"
 	_, err = db.db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 

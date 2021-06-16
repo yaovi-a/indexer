@@ -17,20 +17,9 @@ type Importer struct {
 func (imp *Importer) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	block := &blockContainer.Block
 
-	proto, ok := config.Consensus[block.CurrentProtocol]
+	_, ok := config.Consensus[block.CurrentProtocol]
 	if !ok {
 		return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
-	}
-
-	for intra := range block.Payset {
-		stxn := &block.Payset[intra]
-
-		if stxn.HasGenesisID {
-			stxn.Txn.GenesisID = block.GenesisID()
-		}
-		if stxn.HasGenesisHash || proto.RequireGenesisHash {
-			stxn.Txn.GenesisHash = block.GenesisHash()
-		}
 	}
 
 	return imp.db.AddBlock(blockContainer.Block)

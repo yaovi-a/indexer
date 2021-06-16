@@ -1,7 +1,6 @@
 package idb
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -61,7 +60,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
-	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
+	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned
@@ -121,7 +120,7 @@ type TransactionFilter struct {
 	Offset     *uint64 // nil for no filter
 	OffsetLT   *uint64 // nil for no filter
 	OffsetGT   *uint64 // nil for no filter
-	SigType    SigType  // ["", "sig", "msig", "lsig"]
+	SigType    SigType // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
 	AlgosLT    *uint64
@@ -252,32 +251,6 @@ type IndexerDbOptions struct {
 	// NoMigrate indicates to not run any migrations.
 	// Should probably only be used by the `reset` subcommand.
 	NoMigrate bool
-}
-
-type StateDelta struct {
-	Key   []byte
-	Delta basics.ValueDelta
-}
-
-// AppReverseDelta extra data attached to transactions relating to applications
-type AppReverseDelta struct {
-	Delta             []StateDelta           `codec:"d,omitempty"`
-	OnCompletion      transactions.OnCompletion `codec:"oc,omitempty"`
-	ApprovalProgram   []byte                 `codec:"approv,omitempty"`
-	ClearStateProgram []byte                 `codec:"clearp,omitempty"`
-	LocalStateSchema  basics.StateSchema  `codec:"lsch,omitempty"`
-	GlobalStateSchema basics.StateSchema  `codec:"gsch,omitempty"`
-}
-
-// SetDelta adds delta values to the AppReverseDelta object.
-func (ard *AppReverseDelta) SetDelta(key []byte, delta basics.ValueDelta) {
-	for i, sd := range ard.Delta {
-		if bytes.Equal(key, sd.Key) {
-			ard.Delta[i].Delta = delta
-			return
-		}
-	}
-	ard.Delta = append(ard.Delta, StateDelta{Key: key, Delta: delta})
 }
 
 // Health is the response object that IndexerDb objects need to return from the Health method.

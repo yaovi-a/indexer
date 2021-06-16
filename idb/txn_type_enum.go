@@ -1,7 +1,7 @@
 package idb
 
 import (
-  "strings"
+	"strings"
 
 	"github.com/algorand/go-algorand/protocol"
 )

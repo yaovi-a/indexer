@@ -40,13 +40,16 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 
 	idb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
 	err = idb.LoadGenesis(genesis)
+	require.NoError(t, err)
+
+	err = idb.AddBlock(genesisBlock)
 	require.NoError(t, err)
 
 	return idb, shutdownFunc

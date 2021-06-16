@@ -16,88 +16,78 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
-const addBlockHeaderQuery =
-	"INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES " +
+const addBlockHeaderQuery = "INSERT INTO block_header " +
+	"(round, realtime, rewardslevel, header) VALUES " +
 	"($1, $2, $3, $4) ON CONFLICT DO NOTHING"
-const addTxnQuery =
-	"INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn, extra) " +
+const addTxnQuery = "INSERT INTO txn " +
+	"(round, intra, typeenum, asset, txid, txnbytes, txn, extra) " +
 	"VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING"
-const addTxnParticipantQuery =
-	"INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) " +
-	"ON CONFLICT DO NOTHING"
-const updateAssetQuery =
-	"INSERT INTO asset " +
+const addTxnParticipantQuery = "INSERT INTO txn_participation " +
+	"(addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+const updateAssetQuery = "INSERT INTO asset " +
 	"(index, creator_addr, params, deleted, created_at) " +
 	"VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET " +
 	"creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = FALSE"
-const updateAccountAssetQuery =
-	"INSERT INTO account_asset " +
+const updateAccountAssetQuery = "INSERT INTO account_asset " +
 	"(addr, assetid, amount, frozen, deleted, created_at) " +
 	"VALUES($1, $2, $3, $4, FALSE, $5) ON CONFLICT (addr, assetid) DO UPDATE SET " +
 	"amount = EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = FALSE"
-const updateAppQuery =
-	"INSERT INTO app " +
+const updateAppQuery = "INSERT INTO app " +
 	"(index, creator, params, deleted, created_at) " +
 	"VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET " +
 	"creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = FALSE"
-const updateAccountAppQuery =
-	"INSERT INTO account_app " +
+const updateAccountAppQuery = "INSERT INTO account_app " +
 	"(addr, app, localstate, deleted, created_at) " +
 	"VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (addr, app) DO UPDATE SET " +
 	"localstate = EXCLUDED.localstate, deleted = FALSE"
-const deleteAccountQuery =
-	"INSERT INTO account " +
+const deleteAccountQuery = "INSERT INTO account " +
 	"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at) " +
 	"VALUES($1, 0, 0, 0, TRUE, $2, $2) ON CONFLICT (addr) DO UPDATE SET " +
 	"microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, " +
 	"rewards_total = EXCLUDED.rewards_total, deleted = TRUE, " +
 	"closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data"
-const updateAccountQuery =
-	"INSERT INTO account " +
+const updateAccountQuery = "INSERT INTO account " +
 	"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data) " +
 	"VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET " +
 	"microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, " +
 	"rewards_total = EXCLUDED.rewards_total, deleted = FALSE, " +
 	"account_data = EXCLUDED.account_data"
-const deleteAssetQuery =
-	"INSERT INTO asset " +
+const deleteAssetQuery = "INSERT INTO asset " +
 	"(index, creator_addr, params, deleted, created_at, closed_at) " +
 	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET " +
 	"creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = TRUE, " +
 	"closed_at = EXCLUDED.closed_at"
-const deleteAccountAssetQuery =
-	"INSERT INTO account_asset " +
+const deleteAccountAssetQuery = "INSERT INTO account_asset " +
 	"(addr, assetid, amount, frozen, deleted, created_at, closed_at) " +
 	"VALUES($1, $2, 0, false, TRUE, $3, $3) ON CONFLICT (addr, assetid) DO UPDATE SET " +
 	"amount = EXCLUDED.amount, deleted = TRUE, closed_at = EXCLUDED.closed_at"
-const deleteAppQuery =
-	"INSERT INTO app (index, creator, params, deleted, created_at, closed_at) " +
+const deleteAppQuery = "INSERT INTO app " +
+	"(index, creator, params, deleted, created_at, closed_at) " +
 	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET " +
 	"creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = TRUE, " +
 	"closed_at = EXCLUDED.closed_at"
-const deleteAccountAppQuery =
-	"INSERT INTO account_app (addr, app, localstate, deleted, created_at, closed_at) " +
+const deleteAccountAppQuery = "INSERT INTO account_app " +
+	"(addr, app, localstate, deleted, created_at, closed_at) " +
 	"VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET " +
 	"localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at"
-const updateAccountKeyTypeQuery =
-	"UPDATE account SET keytype = $1 WHERE addr = $2"
+const updateAccountKeyTypeQuery = "UPDATE account SET keytype = $1 WHERE addr = $2"
 
-type Writer struct{
+type Writer struct {
 	tx *sql.Tx
 
-	addBlockHeaderStmt *sql.Stmt
-	addTxnStmt *sql.Stmt
-	addTxnParticipantStmt *sql.Stmt
-	updateAssetStmt *sql.Stmt
-	updateAccountAssetStmt *sql.Stmt
-	updateAppStmt *sql.Stmt
-	updateAccountAppStmt *sql.Stmt
-	deleteAccountStmt *sql.Stmt
-	updateAccountStmt *sql.Stmt
-	deleteAssetStmt *sql.Stmt
-	deleteAccountAssetStmt *sql.Stmt
-	deleteAppStmt *sql.Stmt
-	deleteAccountAppStmt *sql.Stmt
+	addBlockHeaderStmt       *sql.Stmt
+	addTxnStmt               *sql.Stmt
+	addTxnParticipantStmt    *sql.Stmt
+	updateAssetStmt          *sql.Stmt
+	updateAccountAssetStmt   *sql.Stmt
+	updateAppStmt            *sql.Stmt
+	updateAccountAppStmt     *sql.Stmt
+	deleteAccountStmt        *sql.Stmt
+	updateAccountStmt        *sql.Stmt
+	deleteAssetStmt          *sql.Stmt
+	deleteAccountAssetStmt   *sql.Stmt
+	deleteAppStmt            *sql.Stmt
+	deleteAccountAppStmt     *sql.Stmt
 	updateAccountKeyTypeStmt *sql.Stmt
 }
 
@@ -229,11 +219,20 @@ func transactionAsset(block *bookkeeping.Block, intra uint64, typeenum idb.TxnTy
 	return assetid
 }
 
-// Add transactions from `block` to the database. `modifiedTxns` contains enhanced apply data
-// generated by evaluator.
+// Add transactions from `block` to the database. `modifiedTxns` contains enhanced
+// apply data generated by evaluator.
 func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock) error {
 	for i, stib := range block.Payset {
-		txn := stib.Txn
+		var stxnad transactions.SignedTxnWithAD
+		var err error
+		// This function makes sure to set correct genesis information so we can get the
+		// correct transaction hash.
+		stxnad.SignedTxn, stxnad.ApplyData, err = block.BlockHeader.DecodeSignedTxn(stib)
+		if err != nil {
+			return fmt.Errorf("addTransactions() decode signed txn err: %w", err)
+		}
+
+		txn := stxnad.Txn
 
 		typeenum, ok := idb.GetTypeEnum(txn.Type)
 		if !ok {
@@ -245,14 +244,14 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		id := txn.ID()
 		idStr := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
 
-		extra := idb.TxnExtra {
+		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[i].ApplyData.AssetClosingAmount,
 		}
 
-		_, err := w.addTxnStmt.Exec(
+		_, err = w.addTxnStmt.Exec(
 			uint64(block.Round()), i, int(typeenum), assetid, idStr,
-			protocol.Encode(&stib.SignedTxnWithAD),
-			encoding.EncodeSignedTxnWithAD(stib.SignedTxnWithAD),
+			protocol.Encode(&stxnad),
+			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
 		if err != nil {
 			return fmt.Errorf("addTransactions() exec err: %w", err)
@@ -304,16 +303,16 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 }
 
 func trimAccountData(ad basics.AccountData) basics.AccountData {
-  ad.MicroAlgos = basics.MicroAlgos{}
-  ad.RewardsBase = 0
-  ad.RewardedMicroAlgos = basics.MicroAlgos{}
-  ad.AssetParams = nil
-  ad.Assets = nil
-  ad.AppLocalStates = nil
-  ad.AppParams = nil
-  ad.TotalAppSchema = basics.StateSchema{}
+	ad.MicroAlgos = basics.MicroAlgos{}
+	ad.RewardsBase = 0
+	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	ad.AssetParams = nil
+	ad.Assets = nil
+	ad.AppLocalStates = nil
+	ad.AppParams = nil
+	ad.TotalAppSchema = basics.StateSchema{}
 
-  return ad
+	return ad
 }
 
 func (w *Writer) writeBalanceRecord(round basics.Round, record basics.BalanceRecord) error {
@@ -386,46 +385,50 @@ func (w *Writer) writeBalanceRecords(round basics.Round, records []basics.Balanc
 	return nil
 }
 
-func (w *Writer) writeDeletedAccountCreatables(round basics.Round, address basics.Address, creatables ledgercore.DeletedAccountCreatables) error {
-	for assetid := range creatables.AssetParams {
-		_, err := w.deleteAssetStmt.Exec(uint64(assetid), address[:], uint64(round))
-		if err != nil {
-			return fmt.Errorf("writeDeletedAccountCreatables() exec delete asset err: %w", err)
-		}
-	}
-
-	for assetid := range creatables.Assets {
-		_, err := w.deleteAccountAssetStmt.Exec(
-			address[:], uint64(assetid), uint64(round))
-		if err != nil {
-			return fmt.Errorf(
-				"writeDeletedAccountCreatables() exec delete account asset err: %w", err)
-		}
-	}
-
-	for appid := range creatables.AppParams {
-		_, err := w.deleteAppStmt.Exec(uint64(appid), address[:], uint64(round))
-		if err != nil {
-			return fmt.Errorf("writeDeletedAccountCreatables() exec delete app err: %w", err)
-		}
-	}
-
-	for appid := range creatables.AppLocalStates {
-		_, err := w.deleteAccountAppStmt.Exec(address[:], uint64(appid), uint64(round))
-		if err != nil {
-			return fmt.Errorf(
-				"writeDeletedAccountCreatables() exec delete account app err: %w", err)
+func (w *Writer) writeDeletedCreatables(round basics.Round, creatables map[basics.CreatableIndex]ledgercore.ModifiedCreatable) error {
+	for index, creatable := range creatables {
+		// If deleted.
+		if !creatable.Created {
+			if creatable.Ctype == basics.AssetCreatable {
+				_, err := w.deleteAssetStmt.Exec(
+					uint64(index), creatable.Creator[:], uint64(round))
+				if err != nil {
+					return fmt.Errorf(
+						"writeDeletedCreatables() exec delete asset err: %w", err)
+				}
+			} else {
+				_, err := w.deleteAppStmt.Exec(
+					uint64(index), creatable.Creator[:], uint64(round))
+				if err != nil {
+					return fmt.Errorf(
+						"writeDeletedCreatables() exec delete app err: %w", err)
+				}
+			}
 		}
 	}
 
 	return nil
 }
 
-func (w *Writer) writeDeletedCreatables(round basics.Round, creatables ledgercore.DeletedCreatables) error {
-	for address, accountCreatables := range creatables {
-		err := w.writeDeletedAccountCreatables(round, address, accountCreatables)
+func (w *Writer) writeDeletedAssetHoldings(round basics.Round, deletedAssetHoldings map[ledgercore.AccountAsset]struct{}) error {
+	for aa := range deletedAssetHoldings {
+		_, err := w.deleteAccountAssetStmt.Exec(
+			aa.Address[:], uint64(aa.Asset), uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeDeletedCreatables() err: %w", err)
+			return fmt.Errorf(
+				"writeDeletedAssetHoldings() exec delete account asset err: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (w *Writer) writeDeletedAppLocalStates(round basics.Round, deletedAppLocalStates map[ledgercore.AccountApp]struct{}) error {
+	for aa := range deletedAppLocalStates {
+		_, err := w.deleteAccountAppStmt.Exec(aa.Address[:], uint64(aa.App), uint64(round))
+		if err != nil {
+			return fmt.Errorf(
+				"writeDeletedAppLocalStates() exec delete account app err: %w", err)
 		}
 	}
 
@@ -433,12 +436,22 @@ func (w *Writer) writeDeletedCreatables(round basics.Round, creatables ledgercor
 }
 
 func (w *Writer) writeStateDelta(round basics.Round, delta ledgercore.StateDelta) error {
-  err := w.writeBalanceRecords(round, delta.Accts.Accts)
+	err := w.writeBalanceRecords(round, delta.Accts.Accts)
 	if err != nil {
 		return err
 	}
 
-	err = w.writeDeletedCreatables(round, delta.DeletedCreatables)
+	err = w.writeDeletedCreatables(round, delta.Creatables)
+	if err != nil {
+		return err
+	}
+
+	err = w.writeDeletedAssetHoldings(round, delta.DeletedAssetHoldings)
+	if err != nil {
+		return err
+	}
+
+	err = w.writeDeletedAppLocalStates(round, delta.DeletedAppLocalStates)
 	if err != nil {
 		return err
 	}
@@ -447,15 +460,15 @@ func (w *Writer) writeStateDelta(round basics.Round, delta ledgercore.StateDelta
 }
 
 func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) error {
-  for _, stxnib := range payset {
-    _, err := w.updateAccountKeyTypeStmt.Exec(
+	for _, stxnib := range payset {
+		_, err := w.updateAccountKeyTypeStmt.Exec(
 			string(idb.SignatureType(stxnib.SignedTxn)), stxnib.Txn.Sender[:])
-    if err != nil {
-      return fmt.Errorf("updateSigType() exec err: %w", err)
-    }
-  }
+		if err != nil {
+			return fmt.Errorf("updateSigType() exec err: %w", err)
+		}
+	}
 
-  return nil
+	return nil
 }
 
 func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
@@ -479,10 +492,10 @@ func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.S
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-  err = w.updateAccountSigType(block.Payset)
-  if err != nil {
-    return fmt.Errorf("AddBlock() err: %w", err)
-  }
+	err = w.updateAccountSigType(block.Payset)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
 
 	return nil
 }

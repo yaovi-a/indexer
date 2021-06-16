@@ -115,7 +115,7 @@ func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []s
 func decodeSigType(str *string, errorArr []string) (idb.SigType, []string) {
 	if str != nil {
 		sigTypeLc := strings.ToLower(*str)
-    sigtype := idb.SigType(*str)
+		sigtype := idb.SigType(*str)
 		if idb.IsSigTypeValid(sigtype) {
 			return sigtype, errorArr
 		}
