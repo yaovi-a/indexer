@@ -2218,31 +2218,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
 	cache, err := db.getMetastate(nil, specialAccountsMetastateKey)
 	if err != nil {
-		if err != idb.ErrorNotInitialized {
-			return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
-		}
-
-		// Initialize specialAccountsMetastateKey
-		blockHeader, _, err := db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
-		if err != nil {
-			err = fmt.Errorf(
-				"GetSpecialAccounts() problem looking up special accounts from genesis "+
-					"block, err: %w", err)
-			return transactions.SpecialAddresses{}, err
-		}
-
-		accounts := transactions.SpecialAddresses{
-			FeeSink:     blockHeader.FeeSink,
-			RewardsPool: blockHeader.RewardsPool,
-		}
-
-		cache := encoding.EncodeSpecialAddresses(accounts)
-		err = db.setMetastate(nil, specialAccountsMetastateKey, string(cache))
-		if err != nil {
-			return transactions.SpecialAddresses{}, fmt.Errorf("problem saving metastate: %v", err)
-		}
-
-		return accounts, nil
+		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
 
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(cache))

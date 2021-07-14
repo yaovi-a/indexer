@@ -66,6 +66,39 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	assert.Equal(t, block.BlockHeader, headerRead)
 }
 
+func TestWriterSpecialAccounts(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+
+	block := test.MakeGenesisBlock()
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+		defer w.Close()
+
+		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return tx.Commit()
+	}
+	err = db.txWithRetry(context.Background(), serializable, f)
+	require.NoError(t, err)
+
+	j, err := db.getMetastate(nil, specialAccountsMetastateKey)
+	require.NoError(t, err)
+	accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
+	require.NoError(t, err)
+
+	expected := transactions.SpecialAddresses{
+		FeeSink: test.FeeAddr,
+		RewardsPool: test.RewardAddr,
+	}
+	assert.Equal(t, expected, accounts)
+}
+
 func TestWriterTxnTableBasic(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()

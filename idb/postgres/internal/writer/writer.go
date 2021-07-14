@@ -20,6 +20,8 @@ import (
 const addBlockHeaderQuery = "INSERT INTO block_header " +
 	"(round, realtime, rewardslevel, header) VALUES " +
 	"($1, $2, $3, $4) ON CONFLICT DO NOTHING"
+const setSpecialAccountsQuery = "INSERT INTO metastate (k, v) VALUES ('accounts', $1) " +
+	"ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v"
 const addTxnQuery = "INSERT INTO txn " +
 	"(round, intra, typeenum, asset, txid, txnbytes, txn, extra) " +
 	"VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING"
@@ -77,6 +79,7 @@ type Writer struct {
 	tx *sql.Tx
 
 	addBlockHeaderStmt       *sql.Stmt
+	setSpecialAccountsStmt   *sql.Stmt
 	addTxnStmt               *sql.Stmt
 	addTxnParticipantStmt    *sql.Stmt
 	updateAssetStmt          *sql.Stmt
@@ -103,6 +106,11 @@ func MakeWriter(tx *sql.Tx) (Writer, error) {
 	if err != nil {
 		return Writer{},
 			fmt.Errorf("MakeWriter(): prepare add block header stmt err: %w", err)
+	}
+	w.setSpecialAccountsStmt, err = tx.Prepare(setSpecialAccountsQuery)
+	if err != nil {
+		return Writer{},
+			fmt.Errorf("MakeWriter(): prepare set special accounts stmt err: %w", err)
 	}
 	w.addTxnStmt, err = tx.Prepare(addTxnQuery)
 	if err != nil {
@@ -171,6 +179,7 @@ func MakeWriter(tx *sql.Tx) (Writer, error) {
 
 func (w *Writer) Close() {
 	w.addBlockHeaderStmt.Close()
+	w.setSpecialAccountsStmt.Close()
 	w.addTxnStmt.Close()
 	w.addTxnParticipantStmt.Close()
 	w.updateAssetStmt.Close()
@@ -192,6 +201,15 @@ func (w *Writer) addBlockHeader(blockHeader bookkeeping.BlockHeader) error {
 		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(blockHeader))
 	if err != nil {
 		return fmt.Errorf("addBlockHeader() err: %w", err)
+	}
+	return nil
+}
+
+func (w *Writer) setSpecialAccounts(addresses transactions.SpecialAddresses) error {
+	j := encoding.EncodeSpecialAddresses(addresses)
+	_, err := w.setSpecialAccountsStmt.Exec(j)
+	if err != nil {
+		return fmt.Errorf("setSpecialAccounts() err: %w", err)
 	}
 	return nil
 }
@@ -484,7 +502,17 @@ func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) er
 }
 
 func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+	specialAddresses := transactions.SpecialAddresses{
+		FeeSink: block.FeeSink,
+		RewardsPool: block.RewardsPool,
+	}
+
 	err := w.addBlockHeader(block.BlockHeader)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
+
+	err = w.setSpecialAccounts(specialAddresses)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -499,10 +527,6 @@ func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.S
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	specialAddresses := transactions.SpecialAddresses{
-		FeeSink: block.FeeSink,
-		RewardsPool: block.RewardsPool,
-	}
 	err = w.writeStateDelta(block.Round(), delta, specialAddresses)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
