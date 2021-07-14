@@ -503,7 +503,7 @@ func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) er
 
 func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
 	specialAddresses := transactions.SpecialAddresses{
-		FeeSink: block.FeeSink,
+		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
 

@@ -93,7 +93,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	require.NoError(t, err)
 
 	expected := transactions.SpecialAddresses{
-		FeeSink: test.FeeAddr,
+		FeeSink:     test.FeeAddr,
 		RewardsPool: test.RewardAddr,
 	}
 	assert.Equal(t, expected, accounts)

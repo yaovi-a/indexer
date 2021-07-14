@@ -90,7 +90,7 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
 	readonly bool
-	log            *log.Logger
+	log      *log.Logger
 
 	db             *sql.DB
 	migration      *migration.Migration

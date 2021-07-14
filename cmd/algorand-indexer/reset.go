@@ -47,26 +47,26 @@ var resetCmd = &cobra.Command{
 				if andRebuild {
 					// TODO
 					/*
-						nextRound, err := db.GetNextRoundToLoad()
-						maybeFail(err, "failed to get next round, %v", err)
+							nextRound, err := db.GetNextRoundToLoad()
+							maybeFail(err, "failed to get next round, %v", err)
 
-					if nextRound > 0 {
-						fmt.Printf(
-							"Done resetting. Re-building accounting through block %d...",
-							nextRound-1)
-						opts.ReadOnly = false
-						// db.Close() // TODO: add Close() to IndxerDb interface?
-						db = indexerDbFromFlags(opts)
-						cache, err := db.GetDefaultFrozen()
-						maybeFail(err, "failed to get default frozen cache")
-						filter := idb.UpdateFilter{
-							MaxRound: nextRound - 1,
+						if nextRound > 0 {
+							fmt.Printf(
+								"Done resetting. Re-building accounting through block %d...",
+								nextRound-1)
+							opts.ReadOnly = false
+							// db.Close() // TODO: add Close() to IndxerDb interface?
+							db = indexerDbFromFlags(opts)
+							cache, err := db.GetDefaultFrozen()
+							maybeFail(err, "failed to get default frozen cache")
+							filter := idb.UpdateFilter{
+								MaxRound: nextRound - 1,
+							}
+							importer.UpdateAccounting(db, cache, filter, logger)
+							fmt.Println("Done rebuilding accounting.")
+						} else {
+							fmt.Println("Done. No blocks to rebuild accounting from.")
 						}
-						importer.UpdateAccounting(db, cache, filter, logger)
-						fmt.Println("Done rebuilding accounting.")
-					} else {
-						fmt.Println("Done. No blocks to rebuild accounting from.")
-					}
 					*/
 				} else {
 					fmt.Println("Done. To re-build, re-start algorand-indexer daemon")

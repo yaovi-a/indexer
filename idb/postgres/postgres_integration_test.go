@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
-  "math"
+	"math"
 	"sync"
 	"testing"
 
@@ -644,7 +644,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "acfg",
 				Header: transactions.Header{
-					Sender: test.AccountA,
+					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
@@ -744,7 +744,7 @@ func TestAppExtraPages(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "appl",
 				Header: transactions.Header{
-					Sender: test.AccountA,
+					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
@@ -853,10 +853,10 @@ func TestLargeAssetAmount(t *testing.T) {
 	assetid := uint64(1)
 	txn := test.MakeCreateAssetTxn(
 		math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
-  block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 
-  err = db.AddBlock(block)
-  require.NoError(t, err)
+	err = db.AddBlock(block)
+	require.NoError(t, err)
 
 	{
 		opts := idb.AssetBalanceQuery{
