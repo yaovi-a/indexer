@@ -81,7 +81,7 @@ func TestJSONEncoding(t *testing.T) {
 	assert.Equal(t, x, xx)
 }
 
-// Test that encoding of AppLocalState is as expected and that decoding results in the
+// Test that encoding of BlockHeader is as expected and that decoding results in the
 // same object.
 func TestBlockHeaderEncoding(t *testing.T) {
 	i := byte(0)
@@ -281,7 +281,7 @@ func TestAppLocalStateEncoding(t *testing.T) {
 
 	buf := EncodeAppLocalState(state)
 
-	expectedString := `{"hsch":{"nui":2},"tkv":{"They":[{"k":"/w==","v":{"tt":3}}]}}`
+	expectedString := `{"hsch":{"nui":2},"tkv":[{"k":"/w==","v":{"tt":3}}]}`
 	assert.Equal(t, expectedString, string(buf))
 
 	stateNew, err := DecodeAppLocalState(buf)
@@ -303,7 +303,7 @@ func TestAppParamsEncoding(t *testing.T) {
 
 	buf := EncodeAppParams(params)
 
-	expectedString := `{"approv":"/w==","gs":{"They":[{"k":"/w==","v":{"tt":3}}]}}`
+	expectedString := `{"approv":"/w==","gs":[{"k":"/w==","v":{"tt":3}}]}`
 	assert.Equal(t, expectedString, string(buf))
 
 	paramsNew, err := DecodeAppParams(buf)

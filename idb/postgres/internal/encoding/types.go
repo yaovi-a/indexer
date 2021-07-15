@@ -79,6 +79,16 @@ type tealKeyValue struct {
 	They []keyTealValue
 }
 
+// MarshalJSON wraps encoding.EncodeJSON
+func (tkv tealKeyValue) MarshalJSON() ([]byte, error) {
+	return EncodeJSON(tkv.They), nil
+}
+
+// UnmarshalJSON wraps encoding.DecodeJSON
+func (tkv *tealKeyValue) UnmarshalJSON(data []byte) error {
+	return DecodeJSON(data, &tkv.They)
+}
+
 type appLocalState struct {
 	basics.AppLocalState
 	KeyValueOverride tealKeyValue `codec:"tkv"`
