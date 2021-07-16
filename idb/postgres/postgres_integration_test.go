@@ -1063,6 +1063,168 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	assert.Equal(t, uint64(3), round)
 }
 
+// Test that AddBlock makes a record of an account that gets created and deleted in
+// the same round.
+func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	createTxn := test.MakePaymentTxn(
+		0, 5, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
+	deleteTxn := test.MakePaymentTxn(
+		0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(block)
+	require.NoError(t, err)
+
+	opts := idb.AccountQueryOptions{
+		EqualToAddress: test.AccountE[:],
+		IncludeDeleted: true,
+	}
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Account.Deleted)
+	assert.True(t, *row.Account.Deleted)
+	require.NotNil(t, row.Account.CreatedAtRound)
+	assert.Equal(t, uint64(1), *row.Account.CreatedAtRound)
+	require.NotNil(t, row.Account.ClosedAtRound)
+	assert.Equal(t, uint64(1), *row.Account.ClosedAtRound)
+}
+
+// Test that AddBlock makes a record of an asset that is created and deleted in
+// the same round.
+func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	createTxn := test.MakeCreateAssetTxn(3, 0, false, "", "", "", test.AccountA)
+	deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(block)
+	require.NoError(t, err)
+
+	// Asset global state.
+	{
+		opts := idb.AssetsQuery{
+			AssetID: assetid,
+			IncludeDeleted: true,
+		}
+		rowsCh, _ := db.Assets(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Deleted)
+		assert.True(t, *row.Deleted)
+		require.NotNil(t, row.CreatedRound)
+		assert.Equal(t, uint64(1), *row.CreatedRound)
+		require.NotNil(t, row.ClosedRound)
+		assert.Equal(t, uint64(1), *row.ClosedRound)
+	}
+
+	// Asset local state.
+	{
+		opts := idb.AssetBalanceQuery{
+			AssetID: assetid,
+			IncludeDeleted: true,
+		}
+		rowsCh, _ := db.AssetBalances(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Deleted)
+		assert.True(t, *row.Deleted)
+		require.NotNil(t, row.CreatedRound)
+		assert.Equal(t, uint64(1), *row.CreatedRound)
+		require.NotNil(t, row.ClosedRound)
+		assert.Equal(t, uint64(1), *row.ClosedRound)
+	}
+}
+
+// Test that AddBlock makes a record of an app that is created and deleted in
+// the same round.
+func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	appid := uint64(1)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
+	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(block)
+	require.NoError(t, err)
+
+	yes := true
+	opts := generated.SearchForApplicationsParams{
+		ApplicationId: &appid,
+		IncludeAll: &yes,
+	}
+	rowsCh, _ := db.Applications(context.Background(), &opts)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Application.Deleted)
+	assert.True(t, *row.Application.Deleted)
+	require.NotNil(t, row.Application.CreatedAtRound)
+	assert.Equal(t, uint64(1), *row.Application.CreatedAtRound)
+	require.NotNil(t, row.Application.DeletedAtRound)
+	assert.Equal(t, uint64(1), *row.Application.DeletedAtRound)
+}
+
+// Test that AddBlock makes a record of an app that is created and deleted in
+// the same round.
+func TestAddBlockAppOptInOutSameRound(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	appid := uint64(1)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
+	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
+	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createTxn, &optInTxn, &optOutTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(block)
+	require.NoError(t, err)
+
+	opts := idb.AccountQueryOptions{
+		EqualToAddress: test.AccountB[:],
+		IncludeDeleted: true,
+	}
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+
+	require.NotNil(t, row.Account.AppsLocalState)
+	require.Equal(t, 1, len(*row.Account.AppsLocalState))
+
+	localState := (*row.Account.AppsLocalState)[0]
+	require.NotNil(t, localState.Deleted)
+	assert.True(t, *localState.Deleted)
+	require.NotNil(t, localState.OptedInAtRound)
+	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
+	require.NotNil(t, localState.ClosedOutAtRound)
+	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+}
+
 func blockHeaderRounds(t *testing.T, db *IndexerDb) []uint64 {
 	query := "SELECT round FROM block_header ORDER BY round"
 	rows, err := db.db.Query(query)

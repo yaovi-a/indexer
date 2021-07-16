@@ -202,6 +202,82 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 	}
 }
 
+func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
+	// Create a transaction with ExtraProgramPages field set to 1
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+				},
+			},
+		},
+	}
+}
+
+// MakeAppDestroyTxn makes a transaction that destroys an asset.
+func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: basics.AppIndex(appid),
+					OnCompletion: transactions.DeleteApplicationOC,
+				},
+			},
+		},
+	}
+}
+
+// MakeAppOptInTxn makes a transaction that opts in an app.
+func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: basics.AppIndex(appid),
+					OnCompletion: transactions.OptInOC,
+				},
+			},
+		},
+	}
+}
+
+// MakeAppOptOutTxn makes a transaction that opts out an app.
+func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: basics.AppIndex(appid),
+					OnCompletion: transactions.CloseOutOC,
+				},
+			},
+		},
+	}
+}
+
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
 	res := bookkeeping.MakeBlock(prevHeader)
