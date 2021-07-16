@@ -1116,7 +1116,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	// Asset global state.
 	{
 		opts := idb.AssetsQuery{
-			AssetID: assetid,
+			AssetID:        assetid,
 			IncludeDeleted: true,
 		}
 		rowsCh, _ := db.Assets(context.Background(), opts)
@@ -1135,7 +1135,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	// Asset local state.
 	{
 		opts := idb.AssetBalanceQuery{
-			AssetID: assetid,
+			AssetID:        assetid,
 			IncludeDeleted: true,
 		}
 		rowsCh, _ := db.AssetBalances(context.Background(), opts)
@@ -1171,7 +1171,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	yes := true
 	opts := generated.SearchForApplicationsParams{
 		ApplicationId: &appid,
-		IncludeAll: &yes,
+		IncludeAll:    &yes,
 	}
 	rowsCh, _ := db.Applications(context.Background(), &opts)
 
@@ -1271,8 +1271,8 @@ func readTransactions(t *testing.T, db *IndexerDb) {
 func readAccounts(t *testing.T, db *IndexerDb) {
 	opts := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
-		IncludeAssetParams: true,
-		IncludeDeleted: true,
+		IncludeAssetParams:   true,
+		IncludeDeleted:       true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 

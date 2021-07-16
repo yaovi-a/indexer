@@ -233,7 +233,7 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
-					OnCompletion: transactions.DeleteApplicationOC,
+					OnCompletion:  transactions.DeleteApplicationOC,
 				},
 			},
 		},
@@ -252,7 +252,7 @@ func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxn
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
-					OnCompletion: transactions.OptInOC,
+					OnCompletion:  transactions.OptInOC,
 				},
 			},
 		},
@@ -271,7 +271,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
-					OnCompletion: transactions.CloseOutOC,
+					OnCompletion:  transactions.CloseOutOC,
 				},
 			},
 		},
