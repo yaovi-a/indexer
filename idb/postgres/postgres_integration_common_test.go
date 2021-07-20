@@ -49,7 +49,7 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	err = idb.LoadGenesis(genesis)
 	require.NoError(t, err)
 
-	err = idb.AddBlock(genesisBlock)
+	err = idb.AddBlock(&genesisBlock)
 	require.NoError(t, err)
 
 	return idb, shutdownFunc

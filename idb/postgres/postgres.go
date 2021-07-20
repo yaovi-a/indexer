@@ -178,7 +178,7 @@ func (db *IndexerDb) Reset() (err error) {
 	return
 }
 
-func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
+func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("adding block %d", block.Round())
 
 	db.accountingLock.Lock()

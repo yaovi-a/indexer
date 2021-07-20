@@ -22,11 +22,11 @@ type IndexerDb struct {
 }
 
 // AddBlock provides a mock function with given fields: block
-func (_m *IndexerDb) AddBlock(block bookkeeping.Block) error {
+func (_m *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	ret := _m.Called(block)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(bookkeeping.Block) error); ok {
+	if rf, ok := ret.Get(0).(func(*bookkeeping.Block) error); ok {
 		r0 = rf(block)
 	} else {
 		r0 = ret.Error(0)

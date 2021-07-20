@@ -22,7 +22,7 @@ func (imp *Importer) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 		return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 	}
 
-	return imp.db.AddBlock(blockContainer.Block)
+	return imp.db.AddBlock(&blockContainer.Block)
 }
 
 // NewDBImporter creates a new importer object.

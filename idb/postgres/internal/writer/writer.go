@@ -195,10 +195,10 @@ func (w *Writer) Close() {
 	w.updateAccountKeyTypeStmt.Close()
 }
 
-func (w *Writer) addBlockHeader(blockHeader bookkeeping.BlockHeader) error {
+func (w *Writer) addBlockHeader(blockHeader *bookkeeping.BlockHeader) error {
 	_, err := w.addBlockHeaderStmt.Exec(
 		uint64(blockHeader.Round), time.Unix(blockHeader.TimeStamp, 0).UTC(),
-		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(blockHeader))
+		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(*blockHeader))
 	if err != nil {
 		return fmt.Errorf("addBlockHeader() err: %w", err)
 	}
@@ -506,13 +506,13 @@ func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) er
 	return nil
 }
 
-func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
 	specialAddresses := transactions.SpecialAddresses{
 		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
 
-	err := w.addBlockHeader(block.BlockHeader)
+	err := w.addBlockHeader(&block.BlockHeader)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
@@ -522,12 +522,12 @@ func (w *Writer) AddBlock(block bookkeeping.Block, modifiedTxns []transactions.S
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	err = w.addTransactions(&block, modifiedTxns)
+	err = w.addTransactions(block, modifiedTxns)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
 
-	err = w.addTransactionParticipation(&block)
+	err = w.addTransactionParticipation(block)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}

@@ -20,7 +20,7 @@ func IndexerDb() idb.IndexerDb {
 	return &dummyIndexerDb{}
 }
 
-func (db *dummyIndexerDb) AddBlock(block bookkeeping.Block) error {
+func (db *dummyIndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("AddBlock")
 	return nil
 }

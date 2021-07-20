@@ -39,7 +39,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -79,7 +79,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -126,7 +126,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -218,7 +218,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -278,7 +278,7 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -364,7 +364,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -474,7 +474,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -552,7 +552,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -615,7 +615,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -702,7 +702,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -765,7 +765,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -819,7 +819,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -919,7 +919,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -989,7 +989,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -1089,7 +1089,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -1159,7 +1159,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -1251,7 +1251,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, delta)
+		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
 		return tx.Commit()
@@ -1309,7 +1309,7 @@ func TestWriterAddBlockTwice(t *testing.T) {
 		require.NoError(t, err)
 		defer w.Close()
 
-		err = w.AddBlock(block, block.Payset, ledgercore.StateDelta{})
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
 		return tx.Commit()
