@@ -83,19 +83,19 @@ var daemonCmd = &cobra.Command{
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 
-			nextRound, err := db.GetNextRoundToAccount()
-			maybeFail(err, "failed to get next round, %v", err)
-			bot.SetNextRound(nextRound)
-
-			bih := blockImporterHandler{imp: importer.NewImporter(db)}
-			bot.AddBlockHandler(&bih)
-			bot.SetContext(ctx)
-
 			go func() {
 				waitForDBAvailable(db)
 
 				// Initial import if needed.
 				importer.InitialImport(db, genesisJSONPath, bot.Algod(), logger)
+
+				nextRound, err := db.GetNextRoundToAccount()
+				maybeFail(err, "failed to get next round, %v", err)
+				bot.SetNextRound(nextRound)
+
+				bih := blockImporterHandler{imp: importer.NewImporter(db)}
+				bot.AddBlockHandler(&bih)
+				bot.SetContext(ctx)
 
 				logger.Info("Starting block importer.")
 				bot.Run()
