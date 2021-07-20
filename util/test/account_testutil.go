@@ -27,6 +27,7 @@ var (
 	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	GenesisHash crypto.Digest
+	Signature crypto.Signature
 
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
@@ -34,6 +35,7 @@ var (
 
 func init() {
 	GenesisHash[0] = 77
+	Signature[0] = 88
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -76,6 +78,7 @@ func MakeCreateAssetTxn(total, decimals uint64, defaultFrozen bool, unitName, as
 					},
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -97,6 +100,7 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 					AssetFrozen:   frozen,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -121,6 +125,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 					AssetCloseTo:  close,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -143,6 +148,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.Sig
 					ConfigAsset: basics.AssetIndex(assetID),
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -166,6 +172,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 					CloseRemainderTo: close,
 				},
 			},
+			Sig: Signature,
 		},
 		ApplyData: transactions.ApplyData{
 			ClosingAmount:   basics.MicroAlgos{Raw: closeAmt},
@@ -198,6 +205,7 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 					VoteKeyDilution: 1,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -217,6 +225,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -236,6 +245,7 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 					OnCompletion:  transactions.DeleteApplicationOC,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -255,6 +265,7 @@ func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxn
 					OnCompletion:  transactions.OptInOC,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }
@@ -274,6 +285,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 					OnCompletion:  transactions.CloseOutOC,
 				},
 			},
+			Sig: Signature,
 		},
 	}
 }

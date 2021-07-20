@@ -656,6 +656,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 					},
 				},
 			},
+			Sig: test.Signature,
 		},
 	}
 
@@ -753,6 +754,7 @@ func TestAppExtraPages(t *testing.T) {
 					ExtraProgramPages: 1,
 				},
 			},
+			Sig: test.Signature,
 		},
 	}
 
@@ -820,7 +822,6 @@ func TestKeytypeBasic(t *testing.T) {
 	// Sig
 	txn := test.MakePaymentTxn(
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-	txn.Sig[0] = 3
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -833,6 +834,7 @@ func TestKeytypeBasic(t *testing.T) {
 	// Msig
 	txn = test.MakePaymentTxn(
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
@@ -920,7 +922,6 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	// Sig
 	txn := test.MakePaymentTxn(
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-	txn.Sig[0] = 3
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -933,7 +934,6 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	// Rekey.
 	txn = test.MakePaymentTxn(
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
-	txn.Sig[0] = 3
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -945,6 +945,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	// Msig
 	txn = test.MakePaymentTxn(
 		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 	txn.AuthAddr = test.AccountB
 
