@@ -254,25 +254,6 @@ func (db *IndexerDb) AddBlock(block bookkeeping.Block) error {
 	return db.txWithRetry(context.Background(), serializable, f)
 }
 
-// GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
-// Because Go map[]bool returns false by default, we actually return only a map of the true elements.
-func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean = true`)
-	if err != nil {
-		return
-	}
-	defaultFrozen = make(map[uint64]bool)
-	for rows.Next() {
-		var assetid uint64
-		err = rows.Scan(&assetid)
-		if err != nil {
-			return
-		}
-		defaultFrozen[assetid] = true
-	}
-	return
-}
-
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
@@ -434,111 +415,6 @@ func (db *IndexerDb) getNextRoundToLoad() (uint64, error) {
 		return 0, nil
 	}
 	return uint64(nullableRound.Int64 + 1), nil
-}
-
-// Break the read query so that PostgreSQL doesn't get bogged down
-// tracking transactional changes to tables.
-const txnQueryBatchSize = 20000
-
-var yieldTxnQuery string
-
-func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
-}
-
-func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
-	defer rows.Close()
-
-	keepGoing := true
-	for keepGoing {
-		keepGoing = false
-		rounds := make([]uint64, txnQueryBatchSize)
-		intras := make([]int, txnQueryBatchSize)
-		txnbytess := make([][]byte, txnQueryBatchSize)
-		extrajsons := make([][]byte, txnQueryBatchSize)
-		creatableids := make([]int64, txnQueryBatchSize)
-		roundtimes := make([]time.Time, txnQueryBatchSize)
-		pos := 0
-		// read from db
-		for rows.Next() {
-			var round uint64
-			var intra int
-			var txnbytes []byte
-			var extrajson []byte
-			var creatableid int64
-			var roundtime time.Time
-			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &creatableid, &roundtime)
-			if err != nil {
-				var row idb.TxnRow
-				row.Error = err
-				results <- row
-				return
-			}
-
-			rounds[pos] = round
-			intras[pos] = intra
-			txnbytess[pos] = txnbytes
-			extrajsons[pos] = extrajson
-			creatableids[pos] = creatableid
-			roundtimes[pos] = roundtime
-			pos++
-
-			keepGoing = true
-		}
-		if err := rows.Err(); err != nil {
-			var row idb.TxnRow
-			row.Error = err
-			results <- row
-			return
-		}
-		if pos == 0 {
-			break
-		}
-		if pos == txnQueryBatchSize {
-			// figure out last whole round we got
-			lastpos := pos - 1
-			lastround := rounds[lastpos]
-			lastpos--
-			for lastpos >= 0 && rounds[lastpos] == lastround {
-				lastpos--
-			}
-			if lastpos == 0 {
-				panic("unwound whole fetch!")
-			}
-			pos = lastpos + 1
-		}
-		// yield to chan
-		for i := 0; i < pos; i++ {
-			var row idb.TxnRow
-			row.Round = rounds[i]
-			row.RoundTime = roundtimes[i]
-			row.Intra = intras[i]
-			row.TxnBytes = txnbytess[i]
-			row.AssetID = uint64(creatableids[i])
-			if len(extrajsons[i]) > 0 {
-				err := encoding.DecodeJSON(extrajsons[i], &row.Extra)
-				if err != nil {
-					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
-					results <- row
-					return
-				}
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case results <- row:
-			}
-		}
-		if keepGoing {
-			var err error
-			prevRound := rounds[pos-1]
-			rows, err = db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
-			if err != nil {
-				results <- idb.TxnRow{Error: err}
-				break
-			}
-		}
-	}
 }
 
 // GetBlock is part of idb.IndexerDB
@@ -828,35 +704,6 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	}()
 
 	return out, round
-}
-
-func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
-	out := make(chan idb.TxnRow, 1)
-	if len(tf.NextToken) > 0 {
-		err := fmt.Errorf("txTransactions incompatible with next")
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	query, whereArgs, err := buildTransactionQuery(tf)
-	if err != nil {
-		err = fmt.Errorf("txn query err %v", err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	rows, err := tx.Query(query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	go func() {
-		db.yieldTxnsThreadSimple(context.Background(), rows, out, nil, nil)
-		close(out)
-	}()
-	return out
 }
 
 // This function blocks. `tx` must be non-nil.
