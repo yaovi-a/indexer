@@ -334,73 +334,75 @@ func trimAccountData(ad basics.AccountData) basics.AccountData {
 	return ad
 }
 
-func (w *Writer) writeBalanceRecord(round basics.Round, record basics.BalanceRecord) error {
+func (w *Writer) writeAccountData(round basics.Round, address basics.Address, accountData basics.AccountData) error {
 	// Update `asset` table.
-	for assetid, params := range record.AccountData.AssetParams {
+	for assetid, params := range accountData.AssetParams {
 		_, err := w.updateAssetStmt.Exec(
-			uint64(assetid), record.Addr[:], encoding.EncodeAssetParams(params), uint64(round))
+			uint64(assetid), address[:], encoding.EncodeAssetParams(params), uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec update asset err: %w", err)
+			return fmt.Errorf("writeAccountData() exec update asset err: %w", err)
 		}
 	}
 
 	// Update `account_asset` table.
-	for assetid, holding := range record.AccountData.Assets {
+	for assetid, holding := range accountData.Assets {
 		_, err := w.updateAccountAssetStmt.Exec(
-			record.Addr[:], uint64(assetid), strconv.FormatUint(holding.Amount, 10),
+			address[:], uint64(assetid), strconv.FormatUint(holding.Amount, 10),
 			holding.Frozen, uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec update account asset err: %w", err)
+			return fmt.Errorf("writeAccountData() exec update account asset err: %w", err)
 		}
 	}
 
 	// Update `app` table.
-	for appid, params := range record.AccountData.AppParams {
+	for appid, params := range accountData.AppParams {
 		_, err := w.updateAppStmt.Exec(
-			uint64(appid), record.Addr[:], encoding.EncodeAppParams(params), uint64(round))
+			uint64(appid), address[:], encoding.EncodeAppParams(params), uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec update app err: %w", err)
+			return fmt.Errorf("writeAccountData() exec update app err: %w", err)
 		}
 	}
 
 	// Update `account_app` table.
-	for appid, state := range record.AccountData.AppLocalStates {
+	for appid, state := range accountData.AppLocalStates {
 		_, err := w.updateAccountAppStmt.Exec(
-			record.Addr[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
+			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec update account app err: %w", err)
+			return fmt.Errorf("writeAccountData() exec update account app err: %w", err)
 		}
 	}
 
 	// Update `account` table.
-	if record.AccountData.IsZero() {
+	if accountData.IsZero() {
 		// Delete account.
-		_, err := w.deleteAccountStmt.Exec(record.Addr[:], uint64(round))
+		_, err := w.deleteAccountStmt.Exec(address[:], uint64(round))
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec delete account err: %w", err)
+			return fmt.Errorf("writeAccountData() exec delete account err: %w", err)
 		}
 	} else {
 		// Update account.
-		accountDataJSON := encoding.EncodeAccountData(trimAccountData(record.AccountData))
+		accountDataJSON := encoding.EncodeAccountData(trimAccountData(accountData))
 		_, err := w.updateAccountStmt.Exec(
-			record.Addr[:], record.AccountData.MicroAlgos.Raw, record.AccountData.RewardsBase,
-			record.AccountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
+			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+			accountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
 		if err != nil {
-			return fmt.Errorf("writeBalanceRecord() exec update account err: %w", err)
+			return fmt.Errorf("writeAccountData() exec update account err: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (w *Writer) writeBalanceRecords(round basics.Round, records []basics.BalanceRecord, specialAddresses transactions.SpecialAddresses) error {
+func (w *Writer) writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, specialAddresses transactions.SpecialAddresses) error {
 	// Update `account` table.
-	for _, record := range records {
+	for i := 0; i < deltas.Len(); i++ {
+		address, accountData := deltas.GetByIdx(i)
+
 		// Indexer currently doesn't support special accounts.
 		// TODO: remove this check.
-		if (record.Addr != specialAddresses.FeeSink) &&
-			(record.Addr != specialAddresses.RewardsPool) {
-			err := w.writeBalanceRecord(round, record)
+		if (address != specialAddresses.FeeSink) &&
+			(address != specialAddresses.RewardsPool) {
+			err := w.writeAccountData(round, address, accountData)
 			if err != nil {
 				return err
 			}
@@ -461,7 +463,7 @@ func (w *Writer) writeDeletedAppLocalStates(round basics.Round, deletedAppLocalS
 }
 
 func (w *Writer) writeStateDelta(round basics.Round, delta ledgercore.StateDelta, specialAddresses transactions.SpecialAddresses) error {
-	err := w.writeBalanceRecords(round, delta.Accts.Accts, specialAddresses)
+	err := w.writeAccountDeltas(round, delta.Accts, specialAddresses)
 	if err != nil {
 		return err
 	}

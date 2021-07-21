@@ -337,27 +337,19 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	var block bookkeeping.Block
 	block.BlockHeader.Round = 4
 
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						Status:             basics.Online,
-						MicroAlgos:         basics.MicroAlgos{Raw: 5},
-						RewardsBase:        6,
-						RewardedMicroAlgos: basics.MicroAlgos{Raw: 7},
-						VoteID:             voteID,
-						SelectionID:        selectionID,
-						VoteFirstValid:     7,
-						VoteLastValid:      8,
-						VoteKeyDilution:    9,
-						AuthAddr:           authAddr,
-					},
-				},
-			},
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{
+		Status:             basics.Online,
+		MicroAlgos:         basics.MicroAlgos{Raw: 5},
+		RewardsBase:        6,
+		RewardedMicroAlgos: basics.MicroAlgos{Raw: 7},
+		VoteID:             voteID,
+		SelectionID:        selectionID,
+		VoteFirstValid:     7,
+		VoteLastValid:      8,
+		VoteKeyDilution:    9,
+		AuthAddr:           authAddr,
+	})
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -392,10 +384,11 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, delta.Accts.Accts[0].MicroAlgos, basics.MicroAlgos{Raw: microalgos})
-	assert.Equal(t, delta.Accts.Accts[0].RewardsBase, rewardsbase)
+	_, expectedAccountData := delta.Accts.GetByIdx(0)
+	assert.Equal(t, expectedAccountData.MicroAlgos, basics.MicroAlgos{Raw: microalgos})
+	assert.Equal(t, expectedAccountData.RewardsBase, rewardsbase)
 	assert.Equal(
-		t, delta.Accts.Accts[0].RewardedMicroAlgos,
+		t, expectedAccountData.RewardedMicroAlgos,
 		basics.MicroAlgos{Raw: rewardsTotal})
 	assert.False(t, deleted)
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
@@ -405,13 +398,13 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		accountDataRead, err := encoding.DecodeAccountData(accountData)
 		require.NoError(t, err)
 
-		assert.Equal(t, delta.Accts.Accts[0].Status, accountDataRead.Status)
-		assert.Equal(t, delta.Accts.Accts[0].VoteID, accountDataRead.VoteID)
-		assert.Equal(t, delta.Accts.Accts[0].SelectionID, accountDataRead.SelectionID)
-		assert.Equal(t, delta.Accts.Accts[0].VoteFirstValid, accountDataRead.VoteFirstValid)
-		assert.Equal(t, delta.Accts.Accts[0].VoteLastValid, accountDataRead.VoteLastValid)
-		assert.Equal(t, delta.Accts.Accts[0].VoteKeyDilution, accountDataRead.VoteKeyDilution)
-		assert.Equal(t, delta.Accts.Accts[0].AuthAddr, accountDataRead.AuthAddr)
+		assert.Equal(t, expectedAccountData.Status, accountDataRead.Status)
+		assert.Equal(t, expectedAccountData.VoteID, accountDataRead.VoteID)
+		assert.Equal(t, expectedAccountData.SelectionID, accountDataRead.SelectionID)
+		assert.Equal(t, expectedAccountData.VoteFirstValid, accountDataRead.VoteFirstValid)
+		assert.Equal(t, expectedAccountData.VoteLastValid, accountDataRead.VoteLastValid)
+		assert.Equal(t, expectedAccountData.VoteKeyDilution, accountDataRead.VoteKeyDilution)
+		assert.Equal(t, expectedAccountData.AuthAddr, accountDataRead.AuthAddr)
 	}
 
 	assert.False(t, rows.Next())
@@ -419,7 +412,8 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round++
-	delta.Accts.Accts[0].AccountData = basics.AccountData{}
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
@@ -458,16 +452,8 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	var block bookkeeping.Block
 	block.BlockHeader.Round = 4
 
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr:        test.AccountA,
-					AccountData: basics.AccountData{},
-				},
-			},
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -534,18 +520,10 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	block.Payset = make([]transactions.SignedTxnInBlock, 1)
 	block.Payset[0] = txn
 
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-					},
-				},
-			},
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+	})
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -569,7 +547,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round = basics.Round(5)
-	delta.Accts.Accts[0].AccountData = basics.AccountData{}
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
@@ -594,21 +573,14 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		Amount: 4,
 		Frozen: true,
 	}
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-						Assets: map[basics.AssetIndex]basics.AssetHolding{
-							assetID: assetHolding,
-						},
-					},
-				},
-			},
+	accountData := basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+		Assets: map[basics.AssetIndex]basics.AssetHolding{
+			assetID: assetHolding,
 		},
 	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -655,7 +627,9 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	delta.DeletedAssetHoldings = map[ledgercore.AccountAsset]struct{}{
 		{Address: test.AccountA, Asset: assetID}: {},
 	}
-	delta.Accts.Accts[0].AccountData.Assets = nil
+	accountData.Assets = nil
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
@@ -744,21 +718,13 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 	assetHolding := basics.AssetHolding{
 		Amount: math.MaxUint64,
 	}
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-						Assets: map[basics.AssetIndex]basics.AssetHolding{
-							assetID: assetHolding,
-						},
-					},
-				},
-			},
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+		Assets: map[basics.AssetIndex]basics.AssetHolding{
+			assetID: assetHolding,
 		},
-	}
+	})
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -798,21 +764,14 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		Total:   99999,
 		Manager: test.AccountB,
 	}
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-						AssetParams: map[basics.AssetIndex]basics.AssetParams{
-							assetID: assetParams,
-						},
-					},
-				},
-			},
+	accountData := basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+		AssetParams: map[basics.AssetIndex]basics.AssetParams{
+			assetID: assetParams,
 		},
 	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -865,7 +824,9 @@ func TestWriterAssetTableBasic(t *testing.T) {
 			Creator: test.AccountA,
 		},
 	}
-	delta.Accts.Accts[0].AccountData.AssetParams = nil
+	accountData.AssetParams = nil
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
@@ -968,21 +929,14 @@ func TestWriterAppTableBasic(t *testing.T) {
 			},
 		},
 	}
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-						AppParams: map[basics.AppIndex]basics.AppParams{
-							appID: appParams,
-						},
-					},
-				},
-			},
+	accountData := basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+		AppParams: map[basics.AppIndex]basics.AppParams{
+			appID: appParams,
 		},
 	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1035,7 +989,9 @@ func TestWriterAppTableBasic(t *testing.T) {
 			Creator: test.AccountA,
 		},
 	}
-	delta.Accts.Accts[0].AccountData.AppParams = nil
+	accountData.AppParams = nil
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
@@ -1138,21 +1094,14 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 			},
 		},
 	}
-	delta := ledgercore.StateDelta{
-		Accts: ledgercore.AccountDeltas{
-			Accts: []basics.BalanceRecord{
-				{
-					Addr: test.AccountA,
-					AccountData: basics.AccountData{
-						MicroAlgos: basics.MicroAlgos{Raw: 5},
-						AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
-							appID: appLocalState,
-						},
-					},
-				},
-			},
+	accountData := basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 5},
+		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
+			appID: appLocalState,
 		},
 	}
+	var delta ledgercore.StateDelta
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1201,7 +1150,9 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	delta.DeletedAppLocalStates = map[ledgercore.AccountApp]struct{}{
 		{Address: test.AccountA, App: appID}: {},
 	}
-	delta.Accts.Accts[0].AccountData.Assets = nil
+	accountData.AppLocalStates = nil
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, accountData)
 
 	err = db.txWithRetry(context.Background(), serializable, f)
 	require.NoError(t, err)
