@@ -86,11 +86,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 
 	// ensure that the don't attempt to rewind a special account.
-	if basics.Address(specialAccounts.FeeSink) == addr {
+	if specialAccounts.FeeSink == addr {
 		err = MakeSpecialAccountRewindError("FeeSink")
 		return
 	}
-	if basics.Address(specialAccounts.RewardsPool) == addr {
+	if specialAccounts.RewardsPool == addr {
 		err = MakeSpecialAccountRewindError("RewardsPool")
 		return
 	}
@@ -118,22 +118,22 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		if err != nil {
 			return
 		}
-		if addr == basics.Address(stxn.Txn.Sender) {
+		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.Raw
 			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.Raw
 			acct.Rewards -= stxn.SenderRewards.Raw
 		}
 		switch protocol.TxType(stxn.Txn.Type) {
 		case protocol.PaymentTx:
-			if addr == basics.Address(stxn.Txn.Sender) {
+			if addr == stxn.Txn.Sender {
 				acct.AmountWithoutPendingRewards += stxn.Txn.Amount.Raw
 			}
-			if addr == basics.Address(stxn.Txn.Receiver) {
+			if addr == stxn.Txn.Receiver {
 				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.Raw
 				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.Raw
 				acct.Rewards -= stxn.ReceiverRewards.Raw
 			}
-			if addr == basics.Address(stxn.Txn.CloseRemainderTo) {
+			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
 				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.Raw
 				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.Raw
@@ -150,13 +150,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
 		case protocol.AssetTransferTx:
-			if addr == basics.Address(stxn.Txn.AssetSender) || addr == basics.Address(stxn.Txn.Sender) {
+			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
-			if addr == basics.Address(stxn.Txn.AssetReceiver) {
+			if addr == stxn.Txn.AssetReceiver {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
-			if addr == basics.Address(stxn.Txn.AssetCloseTo) {
+			if addr == stxn.Txn.AssetCloseTo {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
 		case protocol.AssetFreezeTx:
@@ -208,6 +208,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 			proto, ok := config.Consensus[blockheader.CurrentProtocol]
 			if !ok {
+				err = fmt.Errorf("protocol %s not found", blockheader.CurrentProtocol)
 				return
 			}
 			rewardsUnits := acct.AmountWithoutPendingRewards / proto.RewardUnit
