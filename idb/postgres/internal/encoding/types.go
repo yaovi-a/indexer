@@ -48,6 +48,20 @@ type byteArray struct {
 	data string
 }
 
+func (ba byteArray) MarshalText() ([]byte, error) {
+	return []byte(Base64([]byte(ba.data))), nil
+}
+
+func (ba *byteArray) UnmarshalText(text []byte) error {
+	baNew, err := decodeBase64(string(text))
+	if err != nil {
+		return err
+	}
+
+	*ba = byteArray{string(baNew)}
+	return nil
+}
+
 type stateDelta map[byteArray]valueDelta
 
 type evalDelta struct {
@@ -78,19 +92,7 @@ type keyTealValue struct {
 	Tv  tealValue `codec:"v"`
 }
 
-type tealKeyValue struct {
-	They []keyTealValue
-}
-
-// MarshalJSON wraps encoding.EncodeJSON
-func (tkv tealKeyValue) MarshalJSON() ([]byte, error) {
-	return EncodeJSON(tkv.They), nil
-}
-
-// UnmarshalJSON wraps encoding.DecodeJSON
-func (tkv *tealKeyValue) UnmarshalJSON(data []byte) error {
-	return DecodeJSON(data, &tkv.They)
-}
+type tealKeyValue []keyTealValue
 
 type appLocalState struct {
 	basics.AppLocalState

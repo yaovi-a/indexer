@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 )
 
+// DecodeJSON is a function that decodes json.
 var DecodeJSON = protocol.DecodeJSON
 
 func decodeBase64(data string) ([]byte, error) {
@@ -24,6 +25,7 @@ func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
 	return res
 }
 
+// DecodeBlockHeader decodes block header from json.
 func DecodeBlockHeader(data []byte) (bookkeeping.BlockHeader, error) {
 	var header blockHeader
 	err := DecodeJSON(data, &header)
@@ -52,6 +54,7 @@ func unconvertAssetParams(params assetParams) basics.AssetParams {
 	return res
 }
 
+// DecodeAssetParams decodes asset params from json.
 func DecodeAssetParams(data []byte) (basics.AssetParams, error) {
 	var params assetParams
 	err := DecodeJSON(data, &params)
@@ -93,16 +96,6 @@ func unconvertValueDelta(delta valueDelta) basics.ValueDelta {
 	res := delta.ValueDelta
 	res.Bytes = string(delta.BytesOverride)
 	return res
-}
-
-func (ba *byteArray) UnmarshalText(text []byte) error {
-	baNew, err := decodeBase64(string(text))
-	if err != nil {
-		return err
-	}
-
-	*ba = byteArray{string(baNew)}
-	return nil
 }
 
 func unconvertStateDelta(delta stateDelta) basics.StateDelta {
@@ -181,12 +174,12 @@ func unconvertTealValue(tv tealValue) basics.TealValue {
 }
 
 func unconvertTealKeyValue(tkv tealKeyValue) basics.TealKeyValue {
-	if tkv.They == nil {
+	if tkv == nil {
 		return nil
 	}
 
-	res := basics.TealKeyValue(make(map[string]basics.TealValue, len(tkv.They)))
-	for _, ktv := range tkv.They {
+	res := basics.TealKeyValue(make(map[string]basics.TealValue, len(tkv)))
+	for _, ktv := range tkv {
 		res[string(ktv.Key)] = unconvertTealValue(ktv.Tv)
 	}
 	return res

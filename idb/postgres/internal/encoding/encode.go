@@ -111,10 +111,6 @@ func convertValueDelta(delta basics.ValueDelta) valueDelta {
 	}
 }
 
-func (ba byteArray) MarshalText() ([]byte, error) {
-	return []byte(Base64([]byte(ba.data))), nil
-}
-
 func convertStateDelta(delta basics.StateDelta) stateDelta {
 	if delta == nil {
 		return nil
@@ -181,19 +177,17 @@ func convertTealValue(tv basics.TealValue) tealValue {
 }
 
 func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
-	var res tealKeyValue
-
 	if tkv == nil {
-		return res
+		return nil
 	}
 
-	res.They = make([]keyTealValue, 0, len(tkv))
+	res := make([]keyTealValue, 0, len(tkv))
 	for k, tv := range tkv {
 		ktv := keyTealValue{
 			Key: []byte(k),
 			Tv:  convertTealValue(tv),
 		}
-		res.They = append(res.They, ktv)
+		res = append(res, ktv)
 	}
 	return res
 }
