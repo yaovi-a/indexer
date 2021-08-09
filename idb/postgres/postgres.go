@@ -408,24 +408,6 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
 	return round, nil
 }
 
-func (db *IndexerDb) getNextRoundToLoad() (uint64, error) {
-	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-
-	var nullableRound sql.NullInt64
-	err := row.Scan(&nullableRound)
-	if err == sql.ErrNoRows {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	if !nullableRound.Valid {
-		return 0, nil
-	}
-	return uint64(nullableRound.Int64 + 1), nil
-}
-
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
