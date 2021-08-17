@@ -2,7 +2,6 @@ package writer
 
 import (
 	"database/sql"
-	"encoding/base32"
 	"fmt"
 	"strconv"
 	"time"
@@ -251,24 +250,18 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 			return fmt.Errorf("addTransactions() decode signed txn err: %w", err)
 		}
 
-		txn := stxnad.Txn
-
+		txn := &stxnad.Txn
 		typeenum, ok := idb.GetTypeEnum(txn.Type)
 		if !ok {
 			return fmt.Errorf("addTransactions() get type enum")
 		}
-
 		assetid := transactionAsset(block, uint64(i), typeenum)
-
-		id := txn.ID()
-		idStr := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:])
-
+		id := txn.ID().String()
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[i].ApplyData.AssetClosingAmount,
 		}
-
 		_, err = w.addTxnStmt.Exec(
-			uint64(block.Round()), i, int(typeenum), assetid, idStr,
+			uint64(block.Round()), i, int(typeenum), assetid, id,
 			protocol.Encode(&stxnad),
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
