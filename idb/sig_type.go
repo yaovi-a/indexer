@@ -10,6 +10,7 @@ import (
 // SigType is signature type.
 type SigType string
 
+// Possible signature types.
 const (
 	Sig  SigType = "sig"
 	Msig SigType = "msig"

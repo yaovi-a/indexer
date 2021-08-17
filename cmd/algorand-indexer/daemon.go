@@ -148,7 +148,7 @@ type blockImporterHandler struct {
 func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
 	err := bih.imp.ImportBlock(block)
-	maybeFail(err, "Adding block %d to database failed", block.Block.Round())
+	maybeFail(err, "adding block %d to database failed", block.Block.Round())
 	dt := time.Since(start)
 
 	// Ignore round 0 (which is empty).
