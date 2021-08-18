@@ -52,8 +52,8 @@ type LedgerForEvaluator struct {
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
 func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
-		tx:                 tx,
-		genesisHash:        genesisHash,
+		tx:               tx,
+		genesisHash:      genesisHash,
 		specialAddresses: specialAddresses,
 	}
 

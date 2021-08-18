@@ -16,9 +16,9 @@ type blockHeader struct {
 
 type assetParams struct {
 	basics.AssetParams
-	UnitNameBytes  []byte `codec:"un64"`
-	AssetNameBytes []byte `codec:"an64"`
-	URLBytes       []byte `codec:"au64"`
+	UnitNameBytes    []byte        `codec:"un64"`
+	AssetNameBytes   []byte        `codec:"an64"`
+	URLBytes         []byte        `codec:"au64"`
 	ManagerOverride  crypto.Digest `codec:"m"`
 	ReserveOverride  crypto.Digest `codec:"r"`
 	FreezeOverride   crypto.Digest `codec:"f"`

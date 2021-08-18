@@ -1074,8 +1074,8 @@ func TestReconfigAsset(t *testing.T) {
 			Txn: transactions.Transaction{
 				Type: "acfg",
 				Header: transactions.Header{
-					Sender:     test.AccountA,
-					Fee:        basics.MicroAlgos{Raw: 1000},
+					Sender:      test.AccountA,
+					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: test.GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{

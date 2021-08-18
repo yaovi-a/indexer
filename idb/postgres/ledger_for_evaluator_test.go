@@ -547,7 +547,7 @@ func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
 	defer tx.Rollback()
 
 	specialAddresses := transactions.SpecialAddresses{
-		FeeSink: test.FeeAddr,
+		FeeSink:     test.FeeAddr,
 		RewardsPool: test.RewardAddr,
 	}
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(

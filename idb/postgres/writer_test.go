@@ -106,9 +106,9 @@ func TestWriterTxnTableBasic(t *testing.T) {
 
 	block := bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(2),
-			TimeStamp: 333,
-			GenesisID: test.MakeGenesis().ID(),
+			Round:       basics.Round(2),
+			TimeStamp:   333,
+			GenesisID:   test.MakeGenesis().ID(),
 			GenesisHash: test.GenesisHash,
 			RewardsState: bookkeeping.RewardsState{
 				RewardsLevel: 111111,
@@ -205,7 +205,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 
 	block := bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			GenesisID: test.MakeGenesis().ID(),
+			GenesisID:   test.MakeGenesis().ID(),
 			GenesisHash: test.GenesisHash,
 			UpgradeState: bookkeeping.UpgradeState{
 				CurrentProtocol: test.Proto,
@@ -269,8 +269,8 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 
 	block := bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(2),
-			GenesisID: test.MakeGenesis().ID(),
+			Round:       basics.Round(2),
+			GenesisID:   test.MakeGenesis().ID(),
 			GenesisHash: test.GenesisHash,
 			UpgradeState: bookkeeping.UpgradeState{
 				CurrentProtocol: test.Proto,
@@ -280,13 +280,13 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	}
 
 	stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
 	stxnad1 := test.MakeConfigAssetTxn(
-			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 
@@ -526,8 +526,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 
 	block := bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(4),
-			GenesisID: test.MakeGenesis().ID(),
+			Round:       basics.Round(4),
+			GenesisID:   test.MakeGenesis().ID(),
 			GenesisHash: test.GenesisHash,
 			UpgradeState: bookkeeping.UpgradeState{
 				CurrentProtocol: test.Proto,
@@ -537,8 +537,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	}
 
 	stxnad := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
@@ -1265,9 +1265,9 @@ func TestWriterAddBlockTwice(t *testing.T) {
 
 	block := bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: basics.Round(2),
-			TimeStamp: 333,
-			GenesisID: test.MakeGenesis().ID(),
+			Round:       basics.Round(2),
+			TimeStamp:   333,
+			GenesisID:   test.MakeGenesis().ID(),
 			GenesisHash: test.GenesisHash,
 			RewardsState: bookkeeping.RewardsState{
 				RewardsLevel: 111111,
@@ -1280,13 +1280,13 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	}
 
 	stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
 	stxnad1 := test.MakeConfigAssetTxn(
-			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 
