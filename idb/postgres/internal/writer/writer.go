@@ -74,6 +74,7 @@ const deleteAccountAppQuery = "INSERT INTO account_app " +
 	"localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at"
 const updateAccountKeyTypeQuery = "UPDATE account SET keytype = $1 WHERE addr = $2"
 
+// Writer is responsible for writing blocks and accounting state deltas to the database.
 type Writer struct {
 	tx *sql.Tx
 
@@ -94,6 +95,7 @@ type Writer struct {
 	updateAccountKeyTypeStmt *sql.Stmt
 }
 
+// MakeWriter creates a Writer object.
 func MakeWriter(tx *sql.Tx) (Writer, error) {
 	w := Writer{
 		tx: tx,
@@ -176,6 +178,7 @@ func MakeWriter(tx *sql.Tx) (Writer, error) {
 	return w, nil
 }
 
+// Close shuts down Writer.
 func (w *Writer) Close() {
 	w.addBlockHeaderStmt.Close()
 	w.setSpecialAccountsStmt.Close()
@@ -505,6 +508,7 @@ func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) er
 	return nil
 }
 
+// AddBlock writes the block and accounting state deltas to the database.
 func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
 	specialAddresses := transactions.SpecialAddresses{
 		FeeSink:     block.FeeSink,

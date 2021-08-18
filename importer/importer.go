@@ -9,6 +9,7 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+// Importer is used to import blocks into an idb.IndexerDb object.
 type Importer struct {
 	db idb.IndexerDb
 }
@@ -24,7 +25,7 @@ func (imp *Importer) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	return imp.db.AddBlock(&blockContainer.Block)
 }
 
-// NewDBImporter creates a new importer object.
+// NewImporter creates a new importer object.
 func NewImporter(db idb.IndexerDb) Importer {
 	return Importer{db: db}
 }

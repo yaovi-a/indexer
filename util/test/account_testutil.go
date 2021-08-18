@@ -81,7 +81,7 @@ func MakeConfigAssetTxn(configid, total, decimals uint64, defaultFrozen bool, un
 	}
 }
 
-// MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
+// MakeAssetFreezeTxn create an asset freeze/unfreeze transaction.
 func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -103,7 +103,7 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 	}
 }
 
-// MakeAssetTxnOrPanic creates an asset transfer transaction.
+// MakeAssetTransferTxn creates an asset transfer transaction.
 func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -128,6 +128,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 	}
 }
 
+// MakeAssetOptInTxn makes a transaction that opts in an asset.
 func MakeAssetOptInTxn(assetid uint64, address basics.Address) transactions.SignedTxnWithAD {
 	return MakeAssetTransferTxn(assetid, 0, address, address, basics.Address{})
 }
@@ -151,7 +152,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.Sig
 	}
 }
 
-// MakePayTxnRowOrPanic creates an algo transfer transaction.
+// MakePaymentTxn creates an algo transfer transaction.
 func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
@@ -208,6 +209,7 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 	}
 }
 
+// MakeCreateAppTxn makes a transaction that creates a simple application.
 func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
 	return transactions.SignedTxnWithAD{
@@ -347,6 +349,7 @@ func MakeGenesis() bookkeeping.Genesis {
 	}
 }
 
+// MakeGenesisBlock makes a genesis block.
 func MakeGenesisBlock() bookkeeping.Block {
 	return bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
