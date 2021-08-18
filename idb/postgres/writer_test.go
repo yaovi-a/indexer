@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/base32"
 	"math"
 	"testing"
 	"time"
@@ -105,21 +104,35 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(2)
-	block.BlockHeader.TimeStamp = 333
-	block.BlockHeader.RewardsLevel = 111111
-	block.BlockHeader.TxnCounter = 9
-	block.Payset = make([]transactions.SignedTxnInBlock, 2)
-	block.Payset[0] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{}),
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: basics.Round(2),
+			TimeStamp: 333,
+			GenesisID: test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			RewardsState: bookkeeping.RewardsState{
+				RewardsLevel: 111111,
+			},
+			TxnCounter: 9,
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make([]transactions.SignedTxnInBlock, 2),
 	}
-	block.Payset[1] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakeCreateAssetTxn(
-			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
-	}
+
+	stxnad0 := test.MakePaymentTxn(
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
+	block.Payset[0], err =
+		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+	require.NoError(t, err)
+
+	stxnad1 := test.MakeCreateAssetTxn(
+		100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	block.Payset[1], err =
+		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+	require.NoError(t, err)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -153,17 +166,12 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
-	{
-		id := block.Payset[0].SignedTxnWithAD.ID()
-		expected := []byte(
-			base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
-		assert.Equal(t, expected, txid)
-	}
-	assert.Equal(t, protocol.Encode(&block.Payset[0].SignedTxnWithAD), txnbytes)
+	assert.Equal(t, stxnad0.ID().String(), string(txid))
+	assert.Equal(t, protocol.Encode(&stxnad0), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
-		assert.Equal(t, block.Payset[0].SignedTxnWithAD, stxn)
+		assert.Equal(t, stxnad0, stxn)
 	}
 	assert.Equal(t, "{}", string(extra))
 
@@ -174,17 +182,12 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
-	{
-		id := block.Payset[1].SignedTxnWithAD.ID()
-		expected := []byte(
-			base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(id[:]))
-		assert.Equal(t, expected, txid)
-	}
-	assert.Equal(t, protocol.Encode(&block.Payset[1].SignedTxnWithAD), txnbytes)
+	assert.Equal(t, stxnad1.ID().String(), string(txid))
+	assert.Equal(t, protocol.Encode(&stxnad1), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
-		assert.Equal(t, block.Payset[1].SignedTxnWithAD, stxn)
+		assert.Equal(t, stxnad1, stxn)
 	}
 	assert.Equal(t, "{}", string(extra))
 
@@ -200,18 +203,22 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	var block bookkeeping.Block
-
-	payset := make([]transactions.SignedTxnInBlock, 1)
-	payset[0] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakeAssetTransferTxn(
-			1, 2, test.AccountA, test.AccountB, test.AccountC),
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			GenesisID: test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make(transactions.Payset, 1),
 	}
-	payset[0].ApplyData.AssetClosingAmount = 3
+	stxnad := test.MakeAssetTransferTxn(1, 2, test.AccountA, test.AccountB, test.AccountC)
+	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	require.NoError(t, err)
 
-	block.Payset = make([]transactions.SignedTxnInBlock, 1)
-	block.Payset[0] = payset[0]
-	block.Payset[0].AssetClosingAmount = 0
+	payset := []transactions.SignedTxnInBlock{block.Payset[0]}
+	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -236,9 +243,9 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	require.NoError(t, err)
 
 	{
-		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
+		ret, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
-		assert.Equal(t, block.Payset[0].SignedTxnWithAD, stxn)
+		assert.Equal(t, stxnad, ret)
 	}
 	{
 		expected := idb.TxnExtra{AssetCloseAmount: 3}
@@ -260,18 +267,28 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(2)
-	block.Payset = make([]transactions.SignedTxnInBlock, 2)
-	block.Payset[0] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakePaymentTxn(
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: basics.Round(2),
+			GenesisID: test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make(transactions.Payset, 2),
+	}
+
+	stxnad0 := test.MakePaymentTxn(
 			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{}),
-	}
-	block.Payset[1] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakeCreateAssetTxn(
-			100, 1, false, "ma", "myasset", "myasset.com", test.AccountC),
-	}
+			basics.Address{})
+	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+	require.NoError(t, err)
+
+	stxnad1 := test.MakeCreateAssetTxn(
+			100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+	require.NoError(t, err)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -507,18 +524,24 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = 4
-
-	txn := transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{}),
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: basics.Round(4),
+			GenesisID: test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make(transactions.Payset, 1),
 	}
-	txn.Sig[0] = 5 // set signature so that keytype for account is updated
 
-	block.Payset = make([]transactions.SignedTxnInBlock, 1)
-	block.Payset[0] = txn
+	stxnad := test.MakePaymentTxn(
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			basics.Address{})
+	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
+	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
 	delta.Accts.Upsert(test.AccountA, basics.AccountData{
@@ -1240,20 +1263,32 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	var block bookkeeping.Block
-	block.BlockHeader.Round = basics.Round(2)
-	block.BlockHeader.TimeStamp = 333
-	block.BlockHeader.RewardsLevel = 111111
-	block.Payset = make([]transactions.SignedTxnInBlock, 2)
-	block.Payset[0] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakePaymentTxn(
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: basics.Round(2),
+			TimeStamp: 333,
+			GenesisID: test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			RewardsState: bookkeeping.RewardsState{
+				RewardsLevel: 111111,
+			},
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make(transactions.Payset, 2),
+	}
+
+	stxnad0 := test.MakePaymentTxn(
 			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{}),
-	}
-	block.Payset[1] = transactions.SignedTxnInBlock{
-		SignedTxnWithAD: test.MakeCreateAssetTxn(
-			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA),
-	}
+			basics.Address{})
+	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+	require.NoError(t, err)
+
+	stxnad1 := test.MakeCreateAssetTxn(
+			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
+	require.NoError(t, err)
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		w, err := writer.MakeWriter(tx)
