@@ -28,14 +28,16 @@ const appParamsQuery = "SELECT index, params FROM app WHERE creator = $1 AND NOT
 const appLocalStatesQuery = "SELECT app, localstate FROM account_app " +
 	"WHERE addr = $1 AND NOT deleted"
 
-// Implements `ledgerForEvaluator` interface from go-algorand and is used for accounting.
+// LedgerForEvaluator implements the ledgerForEvaluator interface from go-algorand and
+// is used for accounting.
 type LedgerForEvaluator struct {
 	tx          *sql.Tx
 	genesisHash crypto.Digest
-	// Indexer currently does not store the balance of the rewards pool account, but
-	// go-algorand's eval checks that it satisfies the minimum balance. We thus return
-	// a fake amount. TODO: remove.
-	rewardsPoolAddress basics.Address
+	// Indexer currently does not store the balances of special account, but
+	// go-algorand's eval checks that they satisfy the minimum balance. We thus return
+	// a fake amount.
+	// TODO: remove.
+	specialAddresses transactions.SpecialAddresses
 
 	blockHeaderStmt    *sql.Stmt
 	assetCreatorStmt   *sql.Stmt
@@ -47,11 +49,12 @@ type LedgerForEvaluator struct {
 	appLocalStatesStmt *sql.Stmt
 }
 
-func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, rewardsPoolAddress basics.Address) (LedgerForEvaluator, error) {
+// MakeLedgerForEvaluator creates a LedgerForEvaluator object.
+func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx:                 tx,
 		genesisHash:        genesisHash,
-		rewardsPoolAddress: rewardsPoolAddress,
+		specialAddresses: specialAddresses,
 	}
 
 	var err error
@@ -100,6 +103,7 @@ func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, rewardsPoolAd
 	return l, nil
 }
 
+// Close shuts down LedgerForEvaluator.
 func (l *LedgerForEvaluator) Close() {
 	l.blockHeaderStmt.Close()
 	l.assetCreatorStmt.Close()
@@ -111,6 +115,7 @@ func (l *LedgerForEvaluator) Close() {
 	l.appLocalStatesStmt.Close()
 }
 
+// BlockHdr is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {
 	row := l.blockHeaderStmt.QueryRow(uint64(round))
 
@@ -128,6 +133,7 @@ func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeade
 	return res, nil
 }
 
+// CheckDup is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basics.Round, basics.Round, transactions.Txid, ledger.TxLease) error {
 	// This function is not used by evaluator.
 	return nil
@@ -290,10 +296,12 @@ func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[ba
 	return res, nil
 }
 
+// LookupWithoutRewards is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
-	// The rewards pool balance must pass the minimum balance check in go-algorand's
-	// eval(), so return a sufficiently large balance.
-	if address == l.rewardsPoolAddress {
+	// The balance of a special address must pass the minimum balance check in
+	// go-algorand's evaluator, so return a sufficiently large balance.
+	if (address == l.specialAddresses.FeeSink) ||
+		(address == l.specialAddresses.RewardsPool) {
 		var balance uint64 = 1000 * 1000 * 1000 * 1000 * 1000
 		accountData := basics.AccountData{
 			MicroAlgos: basics.MicroAlgos{Raw: balance},
@@ -332,6 +340,7 @@ func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address bas
 	return accountData, round, nil
 }
 
+// GetCreatorForRound is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.CreatableIndex, ctype basics.CreatableType) (basics.Address, bool, error) {
 	var row *sql.Row
 
@@ -359,10 +368,12 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 	return address, true, nil
 }
 
+// GenesisHash is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) GenesisHash() crypto.Digest {
 	return l.genesisHash
 }
 
+// Totals is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals, error) {
 	// The evaluator uses totals only for recomputing the rewards pool balance. Indexer
 	// does not currently compute the this balance, and we can returns an empty struct
@@ -370,6 +381,7 @@ func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals
 	return ledgercore.AccountTotals{}, nil
 }
 
+// CompactCertVoters is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) CompactCertVoters(basics.Round) (*ledger.VotersForRound, error) {
 	// This function is not used by evaluator.
 	return nil, nil

@@ -187,6 +187,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
+// AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("adding block %d", block.Round())
 
@@ -229,8 +230,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
+			specialAddresses := transactions.SpecialAddresses{
+				FeeSink:     block.FeeSink,
+				RewardsPool: block.RewardsPool,
+			}
 			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, block.GenesisHash(), block.RewardsPool)
+				tx, block.GenesisHash(), specialAddresses)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
