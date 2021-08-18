@@ -128,8 +128,8 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeCreateAssetTxn(
-		100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeConfigAssetTxn(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
@@ -285,8 +285,8 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeCreateAssetTxn(
-			100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+	stxnad1 := test.MakeConfigAssetTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 
@@ -1285,8 +1285,8 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeCreateAssetTxn(
-			100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeConfigAssetTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
 

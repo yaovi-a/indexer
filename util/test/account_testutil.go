@@ -48,8 +48,8 @@ func DecodeAddressOrPanic(addr string) basics.Address {
 	return result
 }
 
-// MakeCreateAssetTxn is a helper to ensure test asset config are initialized.
-func MakeCreateAssetTxn(total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
+// MakeConfigAssetTxn is a helper to ensure test asset config are initialized.
+func MakeConfigAssetTxn(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -60,6 +60,7 @@ func MakeCreateAssetTxn(total, decimals uint64, defaultFrozen bool, unitName, as
 					GenesisHash: GenesisHash,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					ConfigAsset: basics.AssetIndex(configid),
 					AssetParams: basics.AssetParams{
 						Total:         total,
 						Decimals:      uint32(decimals),
