@@ -5,8 +5,8 @@
 package postgres
 
 import (
-	"context"
-	"database/sql"
+	//"context"
+	//"database/sql"
 	"fmt"
 
 	"github.com/algorand/indexer/idb"
@@ -95,6 +95,7 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
+/*
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
@@ -102,6 +103,7 @@ func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) erro
 	migrationStateJSON := encoding.EncodeJSON(state)
 	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
 }
+*/
 
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
@@ -173,6 +175,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 	return state, nil
 }
 
+/*
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
@@ -206,6 +209,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	*state = nextState
 	return nil
 }
+*/
 
 const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
 
@@ -275,6 +279,7 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 
 // MaxRoundAccountedMigration converts the import state.
 func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) error {
+	/*
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
@@ -333,5 +338,6 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 	}
 
 	*migrationState = nextMigrationState
+	*/
 	return nil
 }

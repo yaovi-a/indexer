@@ -23,8 +23,10 @@ import (
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
-	// Load the postgres sql.DB implementation.
-	_ "github.com/jackc/pgx/v4/stdlib"
+
+	// Load the postgres pgxpool.Pool implementation.
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -46,14 +48,14 @@ const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
 
-var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real ACID database
-var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
+var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
+var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := sql.Open("pgx", connection)
+	db, err := pgxpool.Connect(context.Background(), connection)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -67,7 +69,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (*IndexerDb, chan struct{}, error) {
+func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logger) (*IndexerDb, chan struct{}, error) {
 	idb := &IndexerDb{
 		readonly: opts.ReadOnly,
 		log:      logger,
@@ -109,7 +111,7 @@ type IndexerDb struct {
 	readonly bool
 	log      *log.Logger
 
-	db             *sql.DB
+	db             *pgxpool.Pool
 	migration      *migration.Migration
 	accountingLock sync.Mutex
 }
@@ -120,10 +122,10 @@ type IndexerDb struct {
 // sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
 // contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
 // of sql.Tx.Commit().
-func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
+func (db *IndexerDb) txWithRetry(ctx context.Context, opts pgx.TxOptions, f func(context.Context, pgx.Tx) error) error {
 	count := 0
 	for {
-		tx, err := db.db.BeginTx(ctx, &opts)
+		tx, err := db.db.BeginTx(ctx, opts)
 		if err != nil {
 			return err
 		}
@@ -146,11 +148,11 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 
 func (db *IndexerDb) isSetup() (bool, error) {
 	query := `SELECT 0 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'metastate'`
-	row := db.db.QueryRow(query)
+	row := db.db.QueryRow(context.Background(), query)
 
 	var tmp int
 	err := row.Scan(&tmp)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return false, nil
 	}
 	if err != nil {
@@ -169,7 +171,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 	if !setup {
 		// new database, run setup
-		_, err = db.db.Exec(schema.SetupPostgresSql)
+		_, err = db.db.Exec(context.Background(), schema.SetupPostgresSql)
 		if err != nil {
 			return nil, fmt.Errorf("unable to setup postgres: %v", err)
 		}
@@ -195,8 +197,8 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	f := func(ctx context.Context, tx *sql.Tx) error {
-		defer tx.Rollback()
+	f := func(ctx context.Context, tx pgx.Tx) error {
+		defer tx.Rollback(ctx)
 
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(tx)
@@ -259,7 +261,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 		}
 
-		err = tx.Commit()
+		err = tx.Commit(context.Background())
 		if err != nil {
 			return fmt.Errorf("AddBlock() tx commit err: %w", err)
 		}
@@ -271,17 +273,19 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	tx, err := db.db.BeginTx(context.Background(), serializable)
 	if err != nil {
 		return
 	}
-	defer tx.Rollback() // ignored if .Commit() first
+	defer tx.Rollback(context.Background()) // ignored if .Commit() first
 
-	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`)
+	setAccountStatementName := "set_account"
+	query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
+	_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
 	if err != nil {
 		return
 	}
-	defer setAccount.Close()
+	defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
 	for ai, alloc := range genesis.Allocation {
 		addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
@@ -291,7 +295,8 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
-		_, err = setAccount.Exec(
+		_, err = tx.Exec(
+			context.Background(), setAccountStatementName,
 			addr[:], alloc.State.MicroAlgos.Raw,
 			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
 		if err != nil {
@@ -303,30 +308,30 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 	importstate := importState{
 		NextRoundToAccount: &nextRound,
 	}
-	err = db.setImportState(nil, importstate)
+	err = db.setImportState(tx, importstate)
 	if err != nil {
 		return
 	}
 
-	err = tx.Commit()
+	err = tx.Commit(context.Background())
 	return err
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
+func (db *IndexerDb) getMetastate(tx pgx.Tx, key string) (string, error) {
 	query := `SELECT v FROM metastate WHERE k = $1`
 
-	var row *sql.Row
+	var row pgx.Row
 	if tx == nil {
-		row = db.db.QueryRow(query, key)
+		row = db.db.QueryRow(context.Background(), query, key)
 	} else {
-		row = tx.QueryRow(query, key)
+		row = tx.QueryRow(context.Background(), query, key)
 	}
 
 	var value string
 	err := row.Scan(&value)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return "", idb.ErrorNotInitialized
 	}
 	if err != nil {
@@ -339,18 +344,18 @@ func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
 
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err error) {
+func (db *IndexerDb) setMetastate(tx pgx.Tx, key, jsonStrValue string) (err error) {
 	if tx == nil {
-		_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
+		_, err = db.db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
 	} else {
-		_, err = tx.Exec(setMetastateUpsert, key, jsonStrValue)
+		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
 	}
 	return
 }
 
 // Returns idb.ErrorNotInitialized if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
+func (db *IndexerDb) getImportState(tx pgx.Tx) (importState, error) {
 	importStateJSON, err := db.getMetastate(tx, stateMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return importState{}, idb.ErrorNotInitialized
@@ -374,13 +379,13 @@ func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
 }
 
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) setImportState(tx *sql.Tx, state importState) error {
+func (db *IndexerDb) setImportState(tx pgx.Tx, state importState) error {
 	return db.setMetastate(tx, stateMetastateKey, string(encoding.EncodeJSON(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getNextRoundToAccount(tx *sql.Tx) (uint64, error) {
+func (db *IndexerDb) getNextRoundToAccount(tx pgx.Tx) (uint64, error) {
 	state, err := db.getImportState(tx)
 	if err == idb.ErrorNotInitialized {
 		return 0, err
@@ -403,7 +408,7 @@ func (db *IndexerDb) GetNextRoundToAccount() (uint64, error) {
 
 // Returns ErrorNotInitialized if genesis is not loaded.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
+func (db *IndexerDb) getMaxRoundAccounted(tx pgx.Tx) (uint64, error) {
 	round, err := db.getNextRoundToAccount(tx)
 	if err != nil {
 		return 0, err
@@ -417,12 +422,12 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
 
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		return
 	}
-	defer tx.Rollback()
-	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
+	defer tx.Rollback(context.Background())
+	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
 	if err != nil {
@@ -442,7 +447,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			close(out)
 			return bookkeeping.BlockHeader{}, nil, err
 		}
-		rows, err := tx.QueryContext(ctx, query, whereArgs...)
+		rows, err := tx.Query(ctx, query, whereArgs...)
 		if err != nil {
 			err = fmt.Errorf("txn query %#v err %v", query, err)
 			return bookkeeping.BlockHeader{}, nil, err
@@ -653,7 +658,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) yieldTxns(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	if len(tf.NextToken) > 0 {
 		db.txnsWithNext(ctx, tx, tf, out)
 		return
@@ -666,7 +671,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx *sql.Tx, tf idb.Transacti
 		return
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.Query(context.Background(), query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -680,7 +685,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx *sql.Tx, tf idb.Transacti
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
@@ -689,7 +694,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out, round
@@ -697,7 +702,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	go func() {
 		db.yieldTxns(ctx, tx, tf, out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		close(out)
 	}()
 
@@ -705,7 +710,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -733,7 +738,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.Query(context.Background(), query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -773,7 +778,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	rows, err = tx.Query(query, whereArgs...)
+	rows, err = tx.Query(context.Background(), query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -782,7 +787,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
+func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
 	defer rows.Close()
 
 	count := 0
@@ -1448,7 +1453,7 @@ type getAccountsRequest struct {
 	opts        idb.AccountQueryOptions
 	blockheader bookkeeping.BlockHeader
 	query       string
-	rows        *sql.Rows
+	rows        pgx.Rows
 	out         chan idb.AccountRow
 	start       time.Time
 }
@@ -1467,7 +1472,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
@@ -1481,19 +1486,19 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account round err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
 	// Get block header for that round so we know protocol and rewards info
-	row := tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
+	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var headerjson []byte
 	err = row.Scan(&headerjson)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 	blockheader, err := encoding.DecodeBlockHeader(headerjson)
@@ -1501,7 +1506,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
@@ -1515,18 +1520,18 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out:         out,
 		start:       time.Now(),
 	}
-	req.rows, err = tx.Query(query, whereArgs...)
+	req.rows, err = tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 	go func() {
 		db.yieldAccountsThread(req)
 		close(req.out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 	}()
 	return out, round
 }
@@ -1707,7 +1712,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 
 	out := make(chan idb.AssetRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
@@ -1718,27 +1723,27 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 	go func() {
 		db.yieldAssetsThread(ctx, filter, rows, out)
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
+func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1821,7 +1826,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 
 	out := make(chan idb.AssetBalanceRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -1832,26 +1837,26 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 	go func() {
 		db.yieldAssetBalanceThread(ctx, rows, out)
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
+func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1924,7 +1929,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
 
-	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
@@ -1935,27 +1940,27 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 		return out, round
 	}
 
 	go func() {
 		db.yieldApplicationsThread(ctx, rows, out)
 		close(out)
-		tx.Rollback()
+		tx.Rollback(context.Background())
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {
+func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows, out chan idb.ApplicationRow) {
 	defer rows.Close()
 
 	for rows.Next() {

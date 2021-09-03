@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	//"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb"
+	//"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
@@ -27,6 +27,7 @@ type oldImportState struct {
 	AccountRound *int64 `codec:"account_round"`
 }
 
+/*
 func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -109,3 +110,4 @@ func TestMaxRoundAccountedMigrationUninitialized(t *testing.T) {
 	newNum := nextMigrationNum(t, db)
 	assert.Equal(t, 5, newNum)
 }
+*/

@@ -11,6 +11,8 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -96,12 +98,12 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	assert.Equal(t, uint64(0), round)
 }
 
-func assertAccountAsset(t *testing.T, db *sql.DB, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
-	var row *sql.Row
+func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
+	var row pgx.Row
 	var f bool
 	var a uint64
 
-	row = db.QueryRow(`SELECT frozen, amount FROM account_asset as a WHERE a.addr = $1 AND assetid = $2`, addr[:], assetid)
+	row = db.QueryRow(context.Background(), `SELECT frozen, amount FROM account_asset as a WHERE a.addr = $1 AND assetid = $2`, addr[:], assetid)
 	err := row.Scan(&f, &a)
 	assert.NoError(t, err, "failed looking up AccountA.")
 	assert.Equal(t, frozen, f)
@@ -283,7 +285,7 @@ func TestMultipleWriters(t *testing.T) {
 
 	// AccountE should contain the final payment.
 	var balance uint64
-	row := db.db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountE[:])
+	row := db.db.QueryRow(context.Background(), `SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountE[:])
 	err = row.Scan(&balance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, amt, balance)
@@ -369,7 +371,7 @@ func TestRekeyBasic(t *testing.T) {
 	// Then // Account A is rekeyed to account B
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -406,7 +408,7 @@ func TestRekeyToItself(t *testing.T) {
 	// Then // Account's A auth-address is not recorded
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -441,7 +443,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	// Then // Account A is rekeyed to account C
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -537,8 +539,9 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	assertAccountAsset(t, db.db, test.AccountA, assetid, false, 0)
 }
 
-func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+func assertAssetDates(t *testing.T, db *pgxpool.Pool, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
+		context.Background(),
 		"SELECT deleted, created_at, closed_at FROM asset WHERE index = $1", int64(assetID))
 
 	var retDeleted sql.NullBool
@@ -552,8 +555,9 @@ func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.Null
 	assert.Equal(t, closedAt, retClosedAt)
 }
 
-func assertAssetHoldingDates(t *testing.T, db *sql.DB, address basics.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
+		context.Background(),
 		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
 			"addr = $1 AND assetid = $2",
 		address[:], assetID)
@@ -765,7 +769,7 @@ func TestAppExtraPages(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err, "failed to commit")
 
-	row := db.db.QueryRow("SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), "SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
 
 	var index uint64
 	var paramsStr []byte
