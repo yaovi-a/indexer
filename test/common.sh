@@ -320,7 +320,7 @@ function start_postgres() {
     -p 5434:5432 \
     postgres
 
-  sleep 5
+  sleep 15
 
   print_alert "Started - $POSTGRES_CONTAINER"
 }
