@@ -335,54 +335,67 @@ func (l *LedgerForEvaluator) loadAccountTable(addresses []basics.Address) error 
 func (l *LedgerForEvaluator) loadCreatables(addresses []basics.Address) error {
 	var batch pgx.Batch
 
-	for i := range addresses {
-		if l.preloadedAccountData[addresses[i]] != nil {
-			batch.Queue(assetHoldingsStmtName, addresses[i][:])
-			batch.Queue(assetParamsStmtName, addresses[i][:])
-			batch.Queue(appParamsStmtName, addresses[i][:])
-			batch.Queue(appLocalStatesStmtName, addresses[i][:])
+	existingAddresses := make([]basics.Address, 0, len(addresses))
+	for _, address := range addresses {
+		if l.preloadedAccountData[address] != nil {
+			existingAddresses = append(existingAddresses, address)
 		}
 	}
 
+	for i := range existingAddresses {
+		batch.Queue(assetHoldingsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(assetParamsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(appParamsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(appLocalStatesStmtName, existingAddresses[i][:])
+	}
+
 	results := l.tx.SendBatch(context.Background(), &batch)
-	for _, address := range addresses {
-		accountData := l.preloadedAccountData[address]
-		if accountData != nil {
-			rows, err := results.Query()
-			if err != nil {
-				return fmt.Errorf("loadCreatables() query asset holdings err: %w", err)
-			}
-			accountData.Assets, err = l.parseAccountAssetTable(address, rows)
-			if err != nil {
-				return fmt.Errorf("loadCreatables() err: %w", err)
-			}
 
-			rows, err = results.Query()
-			if err != nil {
-				return fmt.Errorf("loadCreatables() query asset params err: %w", err)
-			}
-			accountData.AssetParams, err = l.parseAssetTable(address, rows)
-			if err != nil {
-				return fmt.Errorf("loadCreatables() err: %w", err)
-			}
-
-			rows, err = results.Query()
-			if err != nil {
-				return fmt.Errorf("loadCreatables() query app params err: %w", err)
-			}
-			accountData.AppParams, err = l.parseAppTable(address, rows)
-			if err != nil {
-				return fmt.Errorf("loadCreatables() err: %w", err)
-			}
-
-			rows, err = results.Query()
-			if err != nil {
-				return fmt.Errorf("loadCreatables() query app local states err: %w", err)
-			}
-			accountData.AppLocalStates, err = l.parseAccountAppTable(address, rows)
-			if err != nil {
-				return fmt.Errorf("loadCreatables() err: %w", err)
-			}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query asset holdings err: %w", err)
+		}
+		l.preloadedAccountData[address].Assets, err = l.parseAccountAssetTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query asset params err: %w", err)
+		}
+		l.preloadedAccountData[address].AssetParams, err = l.parseAssetTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query app params err: %w", err)
+		}
+		l.preloadedAccountData[address].AppParams, err = l.parseAppTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query app local states err: %w", err)
+		}
+		l.preloadedAccountData[address].AppLocalStates, err =
+			l.parseAccountAppTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
 		}
 	}
 
