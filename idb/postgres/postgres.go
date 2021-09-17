@@ -79,7 +79,7 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if opts.ReadOnly {
-		migrationState, err := idb.getMigrationState()
+		migrationState, err := idb.getMigrationState(nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
 		}
@@ -2006,7 +2006,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		state, err := db.getMigrationState()
+		state, err := db.getMigrationState(nil)
 		if err != nil {
 			return idb.Health{}, err
 		}

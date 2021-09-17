@@ -10,6 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -44,6 +47,7 @@ func init() {
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 		{MaxRoundAccountedMigration, true, "change import state format"},
+		{DeleteUnaccountedData, true, "delete unaccounted data"},
 	}
 }
 
@@ -103,13 +107,18 @@ func needsMigration(state MigrationState) bool {
 //lint:ignore U1000 this function might be used in a future migration
 func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error {
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
+	err := db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
+	if err != nil {
+		return fmt.Errorf("upsertMigrationState() err: %w", err)
+	}
+
+	return nil
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
-	state, err := db.getMigrationState()
+	state, err := db.getMigrationState(nil)
 	if err == idb.ErrorNotInitialized {
 		state = MigrationState{}
 	} else if err != nil {
@@ -159,8 +168,10 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
-func (db *IndexerDb) getMigrationState() (MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(context.Background(), nil, schema.MigrationMetastateKey)
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getMigrationState(tx pgx.Tx) (MigrationState, error) {
+	migrationStateJSON, err := db.getMetastate(
+		context.Background(), tx, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
@@ -282,4 +293,109 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 // MaxRoundAccountedMigration converts the import state.
 func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) error {
 	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.6.1")
+}
+
+func getTransactionParticipants(txn transactions.Transaction) []basics.Address {
+	res := make([]basics.Address, 0, 7)
+
+	add := func(address basics.Address) {
+		if address.IsZero() {
+			return
+		}
+		for _, p := range res {
+			if address == p {
+				return
+			}
+		}
+		res = append(res, address)
+	}
+
+	add(txn.Sender)
+	add(txn.Receiver)
+	add(txn.CloseRemainderTo)
+	add(txn.AssetSender)
+	add(txn.AssetReceiver)
+	add(txn.AssetCloseTo)
+	add(txn.FreezeAccount)
+
+	return res
+}
+
+func getParticipants(tx pgx.Tx, startRound uint64) (map[basics.Address]struct{}, error) {
+	rows, err := tx.Query(
+		context.Background(), "SELECT txnbytes FROM txn WHERE round >= $1", startRound)
+	if err != nil {
+		return nil, fmt.Errorf("getParticipants() query err: %w", err)
+	}
+
+	res := make(map[basics.Address]struct{})
+	for rows.Next() {
+		var bytes []byte
+		err = rows.Scan(&bytes)
+		if err != nil {
+			return nil, fmt.Errorf("getParticipants() scan err: %w", err)
+		}
+
+		var stxnad transactions.SignedTxnWithAD
+		err = protocol.Decode(bytes, &stxnad)
+		if err != nil {
+			return nil, fmt.Errorf("getParticipants() decode err: %w", err)
+		}
+
+		participants := getTransactionParticipants(stxnad.Txn)
+		for _, address := range participants {
+			res[address] = struct{}{}
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("getParticipants() finish scan err: %w", err)
+	}
+
+	return res, nil
+}
+
+// DeleteUnaccountedData deletes rows from tables txn and txn_participation for rounds
+// that have not been accounted. This is needed to be able to use postgres' COPY
+// operation that doesn't allow overrides, and the previous two-phase accounting could
+// have left rows for unaccounted rounds.
+func DeleteUnaccountedData(db *IndexerDb, migrationState *MigrationState) error {
+	f := func(tx pgx.Tx) error {
+		defer tx.Rollback(context.Background())
+
+		nextRound, err := db.getNextRoundToAccount(context.Background(), tx)
+		if err != nil {
+			return err
+		}
+
+		participants, err := getParticipants(tx, nextRound)
+		if err != nil {
+			return err
+		}
+
+		for address := range participants {
+			_, err = tx.Exec(
+				context.Background(),
+				"DELETE FROM txn_participation WHERE addr = $1 AND round >= $2",
+				address[:], nextRound)
+			if err != nil {
+				return fmt.Errorf("delete from txn_participation err: %w", err)
+			}
+		}
+
+		_, err = tx.Exec(
+			context.Background(), "DELETE FROM txn WHERE round >= $1", nextRound)
+		if err != nil {
+			return fmt.Errorf("delete from txn err: %w", err)
+		}
+
+		migrationState.NextMigration++
+		err = upsertMigrationState(db, tx, migrationState)
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit(context.Background())
+	}
+	return db.txWithRetry(serializable, f)
 }
